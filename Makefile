@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help up down logs smoke test test-trade analyst-once trader-once telegram-bot
+.PHONY: help up down logs smoke test test-trade analyst-once trader-once reporter
 
 help: ## Show available targets
 	@printf "EDGE-AGENT targets:\n\n"
@@ -30,5 +30,5 @@ analyst-once: ## Run a single market analyst cycle
 trader-once: ## Run a single trader cycle
 	@python3 -m agents.trader.agent --once
 
-telegram-bot: ## Start the Telegram operator bot
-	@python3 -m agents.reporter.telegram_bot
+reporter: ## Start the Telegram reporter/approval agent
+	@python3 -m agents.reporter.agent

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 from pathlib import Path
 
 from telegram import Bot, Message
@@ -16,7 +17,6 @@ from agents.reporter.formatters import (
     format_approval_request,
     format_close_alert,
     format_daily_loss_halt,
-    format_periodic_report,
     format_stop_loss_alert,
     format_trade_alert,
 )
@@ -62,17 +62,37 @@ class TelegramNotifier:
         if not self.configured:
             LOGGER.warning("Telegram notifier is not configured; skipping message send.")
             return None
-        try:
-            message = asyncio.run(
-                self.bot.send_message(
-                    chat_id=self.settings.telegram_operator_chat_id,
-                    text=text,
-                    parse_mode=ParseMode.HTML,
-                    reply_markup=reply_markup,
-                )
+        result: dict[str, Message | Exception] = {}
+
+        async def _send_message() -> Message:
+            return await self.bot.send_message(
+                chat_id=self.settings.telegram_operator_chat_id,
+                text=text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=reply_markup,
             )
-        except Exception as exc:
+
+        def _runner() -> None:
+            try:
+                result["message"] = asyncio.run(_send_message())
+            except Exception as exc:  # pragma: no cover - exercised via caller behavior
+                result["error"] = exc
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            _runner()
+        else:
+            thread = threading.Thread(target=_runner, daemon=True)
+            thread.start()
+            thread.join()
+
+        if "error" in result:
+            exc = result["error"]
             LOGGER.warning("Telegram send failed: %s", exc)
+            return None
+        message = result.get("message")
+        if message is None:
             return None
         self._append_audit("notification_sent", text=text)
         return message
@@ -135,6 +155,13 @@ class TelegramNotifier:
         proposal: TradeProposal,
         decision: PolicyDecision,
     ) -> ApprovalResolution:
+        if not self.configured:
+            LOGGER.warning("Telegram notifier is not configured; approval request will time out immediately.")
+            return ApprovalResolution(
+                request_id="telegram_unconfigured",
+                status="timed_out",
+                approved=False,
+            )
         request = self.approval_store.create(
             signal,
             proposal,

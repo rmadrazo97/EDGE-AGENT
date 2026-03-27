@@ -64,22 +64,24 @@ Previously this phase was a full Telegram bot with 10 command handlers. Now spli
 - [x] All notifications logged
 
 ## Implementation notes
-- Added `src/agents/reporter/telegram_bot.py` to build and start a polling Telegram bot with scheduled jobs for runtime-event polling, periodic reports, and daily reports.
-- Added `src/agents/reporter/commands.py` as the current Telegram service surface. It covers notification delivery, approval callbacks, audit logging, and the existing direct operator commands already in use by this repo.
-- Added `src/agents/reporter/formatters.py` for concise HTML-formatted trade, approval, status, risk, and PnL messages.
-- Added `src/agents/reporter/approvals.py` for persistent approval state with timeout handling under `runtime/reporter/approvals.json`.
-- Added Telegram-specific configuration in `src/shared/config.py` for bot token, operator chat ID, report cadence, daily report time, and timezone.
-- Added `make telegram-bot`, documented the bot workflow in `README.md`, and expanded `.env.example` with the new Telegram settings.
-- Added audit logging for outgoing notifications in `runtime/audit/telegram.jsonl`.
-- Kept the implementation as a superset of the narrowed Phase 2.3 PRD: the notification and approval pieces are present, and the existing direct command handlers remain available instead of being deferred to a separate Phase 2.3b.
+- Added `src/agents/reporter/notifier.py` as the thin Telegram sender used by the trader and reporter agents. It no-ops safely when Telegram credentials are missing, logs outgoing sends to `runtime/audit/telegram.jsonl`, and supports trade alerts, close alerts, stop-loss alerts, daily-loss halts, periodic reports, and approval requests.
+- Added `src/agents/reporter/approvals.py` for persistent approval request state, inline [Approve]/[Reject] buttons, timeout handling, callback validation against the configured operator user ID, and approval audit events appended to `runtime/audit/policy.jsonl`.
+- Reworked `src/agents/reporter/formatters.py` to cover the Phase 2.3 alert/report shapes only: trade alerts, close alerts, stop-loss alerts, periodic reports, daily summaries, and approval prompts.
+- Added `src/agents/reporter/agent.py` as the reporter loop. It runs Telegram polling for approval callbacks only and schedules the periodic/daily reports.
+- Updated `src/agents/trader/agent.py` to send alerts after opens/closes, emit daily-loss halt notifications, and request operator approval before executing warning-level trades. Strong rejected signals can be escalated for review, but any eventual execution still re-runs the policy gate before sending an order.
+- Added the new Phase 2.3 config keys in `src/shared/config.py` and `.env.example`:
+  - `TELEGRAM_BOT_TOKEN`
+  - `TELEGRAM_OPERATOR_CHAT_ID`
+  - `EDGE_AGENT_REPORT_INTERVAL_HOURS`
+  - `EDGE_AGENT_DAILY_REPORT_HOUR_UTC`
+  - `EDGE_AGENT_APPROVAL_TIMEOUT_SECONDS`
+- Added `make reporter` and updated `README.md` to document the narrower notification/approval scope.
 
 ## Verification completed
 - `python3 -m compileall src tests`
-- `python3 -m pytest -q`
-- `python3 -m pytest tests/unit/test_telegram_bot.py -q`
-- `python3 -m pytest tests/unit/test_approval_store.py -q`
-- Verified locally that `build_application(...)` succeeds in unit tests with configured Telegram settings and registers command handlers plus scheduled jobs.
-- Verified locally that Telegram credentials are not currently configured on this machine, so live bot polling and end-to-end chat verification remain pending.
+- `python3 -m pytest tests/unit/ -q`
+- `python3 -m pytest tests/unit/test_notifier.py tests/unit/test_config.py tests/unit/test_trader_agent.py -q`
+- Verified locally that Telegram credentials are not currently configured on this machine, so the one manual end-to-end verification step with a real bot token and chat ID remains pending.
 
 ## Out of scope
 - Command handlers (moved to OpenClaw via Phase 2.3b)

@@ -16,7 +16,6 @@ from agents.reporter.approvals import ApprovalStore
 from agents.reporter.formatters import format_daily_report, format_periodic_report
 from agents.reporter.notifier import TelegramNotifier
 from agents.trader.position_manager import PositionManager
-from clients.market_data import MarketDataClient
 from clients.portfolio import PortfolioClient
 from clients.trading import TradingClient
 from shared.config import ClientSettings

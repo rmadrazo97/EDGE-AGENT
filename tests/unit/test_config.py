@@ -48,14 +48,14 @@ def test_first_nonempty_skips_placeholders() -> None:
 def test_client_settings_reads_telegram_fields_from_environment(monkeypatch) -> None:
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456:token")
     monkeypatch.setenv("TELEGRAM_OPERATOR_CHAT_ID", "12345")
-    monkeypatch.setenv("EDGE_AGENT_TELEGRAM_REPORT_INTERVAL_HOURS", "6")
-    monkeypatch.setenv("EDGE_AGENT_TELEGRAM_DAILY_REPORT_TIME", "22:15")
-    monkeypatch.setenv("EDGE_AGENT_TIMEZONE", "Europe/Madrid")
+    monkeypatch.setenv("EDGE_AGENT_REPORT_INTERVAL_HOURS", "6")
+    monkeypatch.setenv("EDGE_AGENT_DAILY_REPORT_HOUR_UTC", "22")
+    monkeypatch.setenv("EDGE_AGENT_APPROVAL_TIMEOUT_SECONDS", "120")
 
     settings = ClientSettings.from_env()
 
     assert settings.telegram_bot_token == "123456:token"
     assert settings.telegram_operator_chat_id == 12345
-    assert settings.telegram_report_interval_hours == 6
-    assert settings.telegram_daily_report_time == "22:15"
-    assert str(settings.timezone) == "Europe/Madrid"
+    assert settings.report_interval_hours == 6
+    assert settings.daily_report_hour_utc == 22
+    assert settings.approval_timeout_seconds == 120
