@@ -1,7 +1,7 @@
 # AGENTS.md — EDGE-AGENT
 
 ## Project overview
-Semi-autonomous crypto shorting system for Binance Futures perpetuals. Uses Hummingbot (execution), OpenClaw (AI orchestration), Moonshot.ai (LLM inference), and Telegram (operator interface).
+Semi-autonomous crypto day trading agent for Binance Futures perpetuals. Supports both long and short positions. Uses Hummingbot (execution), OpenClaw (AI orchestration), Moonshot.ai (LLM inference), and Telegram (operator interface).
 
 ## CRITICAL: This is a public open-source repository
 
@@ -44,7 +44,7 @@ Operator (Telegram / OpenClaw)
 ```
 
 ### Agents (3 core, expand later)
-- **Market Analyst** — reads market data, generates short signals. Read-only, never trades.
+- **Market Analyst** — reads market data, generates long and short trade signals. Read-only, never trades.
 - **Trader** — executes signals within risk bounds, manages positions. Goes through policy layer for every action.
 - **Reporter** — sends Telegram notifications and reports. Read-only.
 

@@ -1,6 +1,6 @@
 # EDGE-AGENT
 
-Semi-autonomous crypto shorting system for Binance Futures perpetuals. Uses AI agents to find short opportunities, execute within hard risk limits, and report via Telegram.
+Semi-autonomous crypto day trading agent for Binance Futures perpetuals. Uses AI agents to find high-conviction long and short opportunities, execute within hard risk limits, and report via Telegram.
 
 ## Status
 
@@ -16,6 +16,7 @@ Semi-autonomous crypto shorting system for Binance Futures perpetuals. Uses AI a
 | 2.2 | Risk policy layer | Done |
 | 2.3 | Telegram notifications & approvals | In progress |
 | 2.3b | OpenClaw workspace + Telegram channel | Pending |
+| 2.5 | Generalize to day trading (long + short) | Pending |
 | 2.4 | Testnet integration (24-48h) | Pending |
 | 3.0 | Go live (real Binance) | Pending |
 
@@ -33,8 +34,8 @@ Operator (Telegram + OpenClaw)
 ```
 
 ### Agents
-- **Market Analyst** — Moonshot.ai-powered signal generation. Analyzes price, volume, funding rates, order book. Read-only, never trades.
-- **Trader** — Executes signals within risk bounds. Manages positions and dynamic LLM-driven exits. Every action goes through policy.
+- **Market Analyst** — Moonshot.ai-powered signal generation. Analyzes price, volume, funding rates, order book. Identifies both long and short opportunities. Read-only, never trades.
+- **Trader** — Executes signals within risk bounds. Opens longs or shorts based on analyst conviction. Manages positions and dynamic LLM-driven exits. Every action goes through policy.
 - **Reporter** — Push notifications to Telegram. Trade alerts, approval requests, periodic and daily reports.
 
 ### Risk rules (non-negotiable, human-set)
