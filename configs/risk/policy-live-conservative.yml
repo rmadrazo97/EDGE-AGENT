@@ -1,0 +1,13 @@
+trading_enabled: true
+max_risk_per_trade_pct: 0.01      # Halved from default 0.02
+max_daily_loss_pct: 0.03          # More conservative than default 0.05
+max_total_exposure_pct: 0.15      # Halved from default 0.30
+max_single_position_pct: 0.05    # Halved from default 0.10
+max_leverage: 2                    # Reduced from 3
+require_stop_loss: true
+max_stop_loss_pct: 0.03
+allowed_pairs:
+  - BTC-USDT                      # ETH-USDT added after 1 week
+allowed_sides:
+  - long
+  - short

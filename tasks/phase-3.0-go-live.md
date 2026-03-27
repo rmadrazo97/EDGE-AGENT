@@ -1,7 +1,7 @@
 ---
 phase: 3.0
 title: Go Live (Real Binance)
-status: pending
+status: prepared
 depends_on: phase-2.4
 ---
 
@@ -52,3 +52,29 @@ Override defaults for initial live period:
 - Full risk parameter restoration (do that after 1 week of clean operation)
 - Altcoin pairs
 - VPS migration
+
+---
+
+## Implementation Notes
+
+Prepared on 2026-03-27. The following artifacts were created:
+
+### Configuration
+- **`configs/risk/policy-live-conservative.yml`** -- Conservative risk policy with halved limits (1% per-trade risk, 15% max exposure, 5% max single position, 2x leverage, BTC-USDT only). Copy this to `configs/risk/policy.yml` at go-live time.
+
+### Runbooks
+- **`docs/runbooks/go-live.md`** -- Full go-live checklist: credential setup, testnet guard removal (`_ensure_testnet_only` and `max_test_position_size` in `src/clients/trading.py`), risk parameter switch, pre-flight verification, first-week monitoring protocol, and parameter relaxation decision points.
+- **`docs/runbooks/disable-trading.md`** -- Four methods to halt trading (Telegram `/kill`, edit policy YAML, close via API, close on Binance directly), plus verification and resume procedures.
+- **`docs/runbooks/rollback.md`** -- Step-by-step revert from live to testnet: stop agents, close positions, restore `.env` credentials, restore default `policy.yml`, restore testnet guards, verify connectivity.
+
+### Architecture Decision Records
+- **`docs/decisions/0001-compose-not-fork.md`** -- Why we compose around upstream Hummingbot images rather than forking.
+- **`docs/decisions/0002-risk-gateway.md`** -- Why a deterministic policy layer sits between AI agents and the trading API.
+- **`docs/decisions/0003-generalist-day-trading.md`** -- Why we generalized from short-only to direction-agnostic day trading.
+
+### Key finding: code changes required before go-live
+The `TradingClient` in `src/clients/trading.py` has two testnet-only guards that must be addressed:
+1. `_ensure_testnet_only()` (line 78) -- raises an error for non-testnet connectors
+2. `max_test_position_size = Decimal("0.005")` (line 76) -- caps position size for testing
+
+These are intentionally left in place until the operator is ready to execute the go-live runbook.
