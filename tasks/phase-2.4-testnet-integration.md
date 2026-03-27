@@ -53,3 +53,30 @@ Run the full system end-to-end on Binance testnet for 24-48 hours. Validate that
 - Strategy performance evaluation (testnet prices aren't real)
 - Optimization
 - Load testing
+
+## Implementation notes
+
+### Files created
+
+- **`docs/runbooks/integration-test.md`** -- Step-by-step operational runbook covering prerequisites, pre-flight checks, starting/stopping the test, monitoring via Telegram, log inspection, success criteria checklist, and post-run analysis.
+
+- **`infra/scripts/integration-test.sh`** -- POSIX sh runner script that verifies prerequisites (Docker, env vars, smoke checks), starts all three agents (analyst, trader, reporter) in the background, saves PIDs to `runtime/integration-test-pids.txt`, traps SIGINT/SIGTERM for clean shutdown, and monitors for unexpected agent exits.
+
+- **`infra/scripts/integration-test-report.sh`** -- POSIX sh post-run analysis script that parses JSONL logs to count signals, trades opened/closed/rejected, calculates win rate and total realized P&L, counts errors, and outputs a formatted summary.
+
+### Makefile targets added
+
+- `make integration-test` -- runs `infra/scripts/integration-test.sh`
+- `make integration-report` -- runs `infra/scripts/integration-test-report.sh`
+
+### Agent entry points used
+
+- `python3 -m agents.analyst.agent` (continuous mode, no `--once` flag)
+- `python3 -m agents.trader.agent` (continuous mode, no `--once` flag)
+- `python3 -m agents.reporter.agent`
+
+### Log paths parsed
+
+- `runtime/analyst/*.jsonl` -- events: `analysis_started`, `signal_generated`, `signal_filtered`
+- `runtime/trader/*.jsonl` -- events: `trade_opened`, `position_closed`, `position_held`, `trade_rejected`, `approval_resolved`
+- `runtime/audit/policy.jsonl` -- policy enforcement audit trail

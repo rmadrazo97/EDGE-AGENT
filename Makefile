@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help up down logs smoke test test-trade analyst-once trader-once reporter
+.PHONY: help up down logs smoke test test-trade analyst-once trader-once reporter integration-test integration-report
 
 help: ## Show available targets
 	@printf "EDGE-AGENT targets:\n\n"
@@ -32,3 +32,9 @@ trader-once: ## Run a single trader cycle
 
 reporter: ## Start the Telegram reporter/approval agent
 	@python3 -m agents.reporter.agent
+
+integration-test: ## Run the 24-48h testnet integration test
+	@./infra/scripts/integration-test.sh
+
+integration-report: ## Generate post-run integration test report
+	@./infra/scripts/integration-test-report.sh
