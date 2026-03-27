@@ -1,7 +1,7 @@
 ---
 phase: 1.2
 title: Smoke Test Suite
-status: pending
+status: completed
 depends_on: phase-1.1
 ---
 
@@ -26,10 +26,22 @@ Checks:
 - Skipped if services aren't running (pytest marker)
 
 ## Acceptance criteria
-- [ ] `make smoke` runs all checks and reports pass/fail
-- [ ] Smoke test exits non-zero on any failure
-- [ ] Integration test passes when services are up
-- [ ] Integration test is skipped gracefully when services are down
+- [x] `make smoke` runs all checks and reports pass/fail
+- [x] Smoke test exits non-zero on any failure
+- [x] Integration test passes when services are up
+- [x] Integration test is skipped gracefully when services are down
+
+## Implementation notes
+- Extended `infra/scripts/smoke.sh` to verify API health, docs, the accounts endpoint, live market-data pricing on `binance_perpetual_testnet`, PostgreSQL readiness, and Hummingbot MCP health.
+- Added `tests/integration/test_api_connectivity.py` using `httpx` to validate the accounts and market-data endpoints.
+- The integration test skips gracefully when the local infrastructure is not running, using the live `/health` probe as the gate.
+
+## Verification
+- `make up`
+- `make smoke`
+- `python3 -m pytest tests/integration/test_api_connectivity.py`
+- `make down`
+- `python3 -m pytest tests/integration/test_api_connectivity.py -q`
 
 ## Out of scope
 - Exchange connectivity tests (Phase 1.3)

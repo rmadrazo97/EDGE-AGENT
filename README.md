@@ -58,7 +58,7 @@ make logs
 make down
 ```
 
-`make up` auto-creates ignored local env files at `infra/env/api.env` and `infra/env/mcp.env` with development defaults if they do not exist yet. The committed templates remain in:
+`make up` auto-creates ignored local env files at `infra/env/api.env` and `infra/env/mcp.env` with development defaults if they do not exist yet. It also prepares the Hummingbot runtime tree under `runtime/hummingbot-api/bots/credentials/` so connector credentials can be persisted correctly. The committed templates remain in:
 
 - `infra/env/api.env.example`
 - `infra/env/mcp.env.example`

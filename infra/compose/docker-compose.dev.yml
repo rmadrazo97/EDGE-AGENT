@@ -70,7 +70,6 @@ services:
       - "8000:8000"
     volumes:
       - ../../runtime/hummingbot-api/bots:/hummingbot-api/bots
-      - ../../runtime/hummingbot-api/credentials:/hummingbot-api/credentials
       - ./hummingbot_api_health.py:/hummingbot-api/edge_agent_health.py:ro
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
