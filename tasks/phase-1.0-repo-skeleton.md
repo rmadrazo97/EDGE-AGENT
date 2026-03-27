@@ -1,7 +1,7 @@
 ---
 phase: 1.0
 title: Repo Skeleton
-status: pending
+status: completed
 depends_on: none
 ---
 
@@ -57,10 +57,22 @@ Targets: `up`, `down`, `logs`, `smoke`, `test` — stubs that will be filled in 
 Python 3.11+, initial deps: httpx, pydantic, python-telegram-bot, pytest
 
 ## Acceptance criteria
-- [ ] `git status` shows clean structure
-- [ ] `.gitignore` prevents secrets and runtime data from being tracked
-- [ ] `make` shows available targets
-- [ ] `pip install -e .` works
+- [x] `git status` shows only the intended scaffold changes before commit
+- [x] `.gitignore` prevents secrets and runtime data from being tracked
+- [x] `make` shows available targets
+- [x] `pip install -e .` works
+
+## Implementation notes
+- Added the Phase 1 package and directory skeleton under `src/`, `configs/`, `infra/`, `openclaw/workspace/`, and `tests/`.
+- Added a root `.env.example` with placeholder values only for Binance, Hummingbot API, Moonshot, and Telegram settings.
+- Added a minimal `Makefile` with documented stub targets for infrastructure and smoke-test phases plus a working `test` target.
+- Added `pyproject.toml` with editable-install support for Python 3.11+ and initial dependencies: `httpx`, `pydantic`, `python-telegram-bot`, and `pytest`.
+- Added a baseline unit test to verify the top-level Python packages are importable.
+
+## Verification
+- `make`
+- `python3 -m pip install -e .`
+- `make test`
 
 ## Out of scope
 - Any actual code logic

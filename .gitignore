@@ -1,0 +1,25 @@
+.DS_Store
+.pytest_cache/
+.venv/
+*.egg-info/
+*.egg
+build/
+dist/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!*.env.example
+infra/env/*.env
+
+# Python cache and tooling output
+**/__pycache__/
+*.py[cod]
+
+# Runtime data
+runtime/
+openclaw/home/
+*.log
+*.db
+*.sqlite
