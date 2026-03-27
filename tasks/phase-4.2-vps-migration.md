@@ -64,3 +64,28 @@ Move the system from local Mac to a VPS for true 24/7 operation with reliability
 - Multi-region deployment
 - CDN / load balancing
 - Auto-scaling
+
+## Implementation Notes
+
+### Files created
+- `infra/compose/docker-compose.prod.yml` -- Production compose with restart policies, memory limits, log rotation, tighter health checks, and no EMQX dashboard port. Includes `edge-agent-agents` service.
+- `infra/Dockerfile` -- Minimal Python 3.11-slim image for the agent container.
+- `infra/scripts/deploy.sh` -- Deploys to VPS via rsync + SSH. Supports `--with-env` flag. Prompts for confirmation if containers are already running.
+- `infra/scripts/rollback.sh` -- Stops containers, reverts to a given commit/tag (default HEAD~1), restarts, verifies health.
+- `infra/scripts/backup.sh` -- Downloads configs, audit logs, and trader state to local `backups/<date>/` directory.
+- `infra/scripts/health-check.sh` -- Checks container status, API health, disk space, agent processes, and Docker disk usage. Outputs clean status report.
+- `docs/runbooks/vps-setup.md` -- Full setup guide covering specs, region, Docker install, security, monitoring cron, backup schedule, and troubleshooting.
+
+### Makefile targets added
+- `make deploy VPS=user@host`
+- `make rollback VPS=user@host`
+- `make backup VPS=user@host`
+- `make health VPS=user@host`
+
+### Design decisions
+- Remote deploy path is `/opt/edge-agent` (standard Linux convention for third-party apps).
+- All scripts are POSIX sh compatible (`#!/usr/bin/env sh`, `set -eu`).
+- Deploy script requires interactive confirmation when containers are running (no auto-restart).
+- Production compose removes EMQX dashboard port (18083) and all other non-essential ports.
+- Memory limits: postgres 512MB, emqx 512MB, hummingbot-api 1GB, mcp 256MB, agents 512MB.
+- Log rotation: 10MB max size, 3 files max per container.
