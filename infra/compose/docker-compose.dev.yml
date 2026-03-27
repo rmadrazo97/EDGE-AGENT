@@ -1,0 +1,130 @@
+name: edge-agent-dev
+
+services:
+  postgres:
+    image: postgres:16.9@sha256:ddfe3e8713e3ee5b8f286082cb12512488dfbf3f5a1ecb0b74a42e6055af0a5f
+    container_name: edge-agent-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hummingbot_api
+      POSTGRES_USER: hbot
+      POSTGRES_PASSWORD: hummingbot-api
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hbot -d hummingbot_api"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - edge-agent
+
+  emqx:
+    image: emqx/emqx:5.10.0@sha256:d52de0cc26924f55a6438efd4f2f10de0add5e494f070e6e62a3f027e52e5f93
+    container_name: edge-agent-emqx
+    restart: unless-stopped
+    environment:
+      EMQX_NAME: emqx
+      EMQX_HOST: node1.emqx.local
+      EMQX_CLUSTER__DISCOVERY_STRATEGY: static
+      EMQX_CLUSTER__STATIC__SEEDS: "[emqx@node1.emqx.local]"
+      EMQX_LOADED_PLUGINS: "emqx_recon,emqx_retainer,emqx_management,emqx_dashboard"
+    ports:
+      - "1883:1883"
+      - "8081:8081"
+      - "8083:8083"
+      - "8084:8084"
+      - "8883:8883"
+      - "18083:18083"
+      - "61613:61613"
+    volumes:
+      - emqx-data:/opt/emqx/data
+      - emqx-log:/opt/emqx/log
+      - emqx-etc:/opt/emqx/etc
+    healthcheck:
+      test: ["CMD", "/opt/emqx/bin/emqx_ctl", "status"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+    networks:
+      edge-agent:
+        aliases:
+          - node1.emqx.local
+
+  hummingbot-api:
+    image: hummingbot/hummingbot-api:1.0.1@sha256:c395147c73468fbaf9308b09415c7b0bfbef9f8f845f3e2b90a579226a8b4386
+    container_name: edge-agent-hummingbot-api
+    restart: unless-stopped
+    env_file:
+      - ../env/api.env
+    environment:
+      BROKER_HOST: emqx
+      DATABASE_URL: postgresql+asyncpg://hbot:hummingbot-api@postgres:5432/hummingbot_api
+    entrypoint: ["uvicorn"]
+    command: ["edge_agent_health:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../../runtime/hummingbot-api/bots:/hummingbot-api/bots
+      - ../../runtime/hummingbot-api/credentials:/hummingbot-api/credentials
+      - ./hummingbot_api_health.py:/hummingbot-api/edge_agent_health.py:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      emqx:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5).read(1)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - edge-agent
+
+  hummingbot-mcp:
+    image: hummingbot/hummingbot-mcp@sha256:053c4df31f68cc63601ad3572eb810791e19ab3341674e9054bc4a93c9c6ec48
+    container_name: edge-agent-hummingbot-mcp
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    env_file:
+      - ../env/mcp.env
+    environment:
+      HUMMINGBOT_API_URL: http://hummingbot-api:8000
+    volumes:
+      - ../../runtime/hummingbot-mcp:/root/.hummingbot_mcp
+    depends_on:
+      hummingbot-api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import os, urllib.request; urllib.request.urlopen(os.environ['HUMMINGBOT_API_URL'] + '/health', timeout=5).read(1)\"",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 20s
+    networks:
+      - edge-agent
+
+networks:
+  edge-agent:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  emqx-data:
+  emqx-log:
+  emqx-etc:

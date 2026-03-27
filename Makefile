@@ -6,17 +6,17 @@ help: ## Show available targets
 	@printf "EDGE-AGENT targets:\n\n"
 	@awk 'BEGIN {FS = ": ## "}; /^[a-zA-Z_-]+: ## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-up: ## Start local infrastructure (stub for Phase 1.1)
-	@echo "Phase 1.1 will wire this target to Docker Compose."
+up: ## Start the local Hummingbot dev infrastructure
+	@./infra/scripts/up.sh
 
-down: ## Stop local infrastructure (stub for Phase 1.1)
-	@echo "Phase 1.1 will wire this target to Docker Compose."
+down: ## Stop the local Hummingbot dev infrastructure
+	@./infra/scripts/down.sh
 
-logs: ## Tail local infrastructure logs (stub for Phase 1.1)
-	@echo "Phase 1.1 will wire this target to Docker Compose logs."
+logs: ## Tail infrastructure logs
+	@./infra/scripts/logs.sh
 
-smoke: ## Run smoke checks (stub for Phase 1.2)
-	@echo "Phase 1.2 will add infrastructure smoke checks."
+smoke: ## Verify the local infrastructure health
+	@./infra/scripts/smoke.sh
 
 test: ## Run the Python test suite
 	python3 -m pytest

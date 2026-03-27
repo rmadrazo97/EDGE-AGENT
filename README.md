@@ -38,4 +38,29 @@ Populate `.env` with your own credentials. Never commit real secrets, runtime st
 - `make smoke`
 - `make test`
 
-The infrastructure and smoke targets are stubs in this phase and will be wired in later tasks.
+## Infrastructure Stack
+
+Phase 1.1 wires a local Docker Compose stack in `infra/compose/docker-compose.dev.yml` with:
+
+- `postgres:16.9` pinned by digest
+- `emqx/emqx:5.10.0` pinned by digest
+- `hummingbot/hummingbot-api:1.0.1` pinned by digest
+- `hummingbot/hummingbot-mcp` pinned by digest
+
+The Hummingbot API image does not currently expose `/health`, so the compose stack mounts a tiny wrapper module at `infra/compose/hummingbot_api_health.py` and starts `uvicorn` against that wrapped app to provide a stable health endpoint without forking the upstream image.
+
+## Infrastructure Quick Start
+
+```bash
+make up
+make smoke
+make logs
+make down
+```
+
+`make up` auto-creates ignored local env files at `infra/env/api.env` and `infra/env/mcp.env` with development defaults if they do not exist yet. The committed templates remain in:
+
+- `infra/env/api.env.example`
+- `infra/env/mcp.env.example`
+
+Runtime state stays under `runtime/`, which remains gitignored.

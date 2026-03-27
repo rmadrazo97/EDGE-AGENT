@@ -1,7 +1,7 @@
 ---
 phase: 1.1
 title: Docker Infrastructure
-status: pending
+status: completed
 depends_on: phase-1.0
 ---
 
@@ -36,11 +36,26 @@ Services:
 - EMQX dashboard accessible
 
 ## Acceptance criteria
-- [ ] `make up` brings all 4 services to healthy state
-- [ ] `curl localhost:8000/health` returns 200
-- [ ] `curl localhost:8000/docs` returns Swagger UI
-- [ ] `make down` cleanly stops everything
-- [ ] No secrets committed to git
+- [x] `make up` brings all 4 services to healthy state
+- [x] `curl localhost:8000/health` returns 200
+- [x] `curl localhost:8000/docs` returns Swagger UI
+- [x] `make down` cleanly stops everything
+- [x] No secrets committed to git
+
+## Implementation notes
+- Added `infra/compose/docker-compose.dev.yml` with pinned PostgreSQL, EMQX, Hummingbot API, and Hummingbot MCP images.
+- Added `infra/env/api.env.example` and `infra/env/mcp.env.example` for committed templates, while `make up` bootstraps ignored local `api.env` and `mcp.env` files with development defaults if they are missing.
+- Wired `make up`, `make down`, `make logs`, and `make smoke` through dedicated scripts in `infra/scripts/`.
+- Added `infra/compose/hummingbot_api_health.py` to expose `/health` on top of the upstream Hummingbot API app because the pinned upstream image does not currently provide that route.
+
+## Verification
+- `docker compose -f infra/compose/docker-compose.dev.yml config`
+- `make up`
+- `make smoke`
+- `curl -i http://localhost:8000/health`
+- `curl -i http://localhost:8000/docs`
+- `curl -I http://localhost:18083`
+- `make down`
 
 ## Notes
 - Use official Hummingbot Docker images where available
