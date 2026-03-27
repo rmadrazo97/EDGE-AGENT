@@ -73,6 +73,8 @@ class ClientSettings(BaseModel):
     report_interval_hours: int = Field(default=4)
     daily_report_hour_utc: int = Field(default=21)
     approval_timeout_seconds: int = Field(default=300)
+    advisor_interval_days: int = Field(default=7)
+    risk_monitor_interval_seconds: int = Field(default=120)
 
     @classmethod
     def from_env(cls) -> "ClientSettings":
@@ -187,5 +189,13 @@ class ClientSettings(BaseModel):
             approval_timeout_seconds=int(
                 _first_nonempty(("EDGE_AGENT_APPROVAL_TIMEOUT_SECONDS",), env_values)
                 or "300"
+            ),
+            advisor_interval_days=int(
+                _first_nonempty(("EDGE_AGENT_ADVISOR_INTERVAL_DAYS",), env_values)
+                or "7"
+            ),
+            risk_monitor_interval_seconds=int(
+                _first_nonempty(("EDGE_AGENT_RISK_MONITOR_INTERVAL_SECONDS",), env_values)
+                or "120"
             ),
         )

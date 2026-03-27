@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help up down logs smoke test test-trade analyst-once trader-once reporter scan-altcoins integration-test integration-report signal-export signal-metrics signal-journal deploy rollback backup health
+.PHONY: help up down logs smoke test test-trade analyst-once trader-once reporter advisor-once risk-monitor scan-altcoins integration-test integration-report signal-export signal-metrics signal-journal deploy rollback backup health
 
 help: ## Show available targets
 	@printf "EDGE-AGENT targets:\n\n"
@@ -33,6 +33,12 @@ trader-once: ## Run a single trader cycle
 reporter: ## Start the Telegram reporter/approval agent
 	@python3 -m agents.reporter.agent
 
+advisor-once: ## Run a single portfolio advisory cycle
+	@python3 -m agents.advisor.agent --once
+
+risk-monitor: ## Start the continuous risk monitor
+	@python3 -m agents.risk_monitor.agent
+
 scan-altcoins: ## Scan altcoin perps for trading opportunities
 	@python3 -m agents.scanner.agent --top 10
 
@@ -50,3 +56,15 @@ signal-metrics: signal-export ## Export signals then print metrics
 
 signal-journal: ## Run full signal pipeline and update OpenClaw journal
 	@python3 -m tools.signal_journal_update
+
+deploy: ## Deploy to VPS (usage: make deploy VPS=user@host)
+	@./infra/scripts/deploy.sh $(VPS)
+
+rollback: ## Rollback VPS to previous version (usage: make rollback VPS=user@host)
+	@./infra/scripts/rollback.sh $(VPS)
+
+backup: ## Backup from VPS (usage: make backup VPS=user@host)
+	@./infra/scripts/backup.sh $(VPS)
+
+health: ## Check VPS health (usage: make health VPS=user@host)
+	@./infra/scripts/health-check.sh $(VPS)

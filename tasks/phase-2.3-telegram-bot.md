@@ -1,7 +1,7 @@
 ---
 phase: 2.3
 title: Telegram Notifications & Approvals
-status: in_progress
+status: completed
 depends_on: phase-2.1, phase-2.2
 ---
 

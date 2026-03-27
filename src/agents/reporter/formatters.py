@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from html import escape
 
+from agents.advisor.models import PortfolioAdvisory
 from agents.reporter.approvals import ApprovalRequest
+from agents.risk_monitor.models import RiskAlert
 from agents.trader.position_manager import ClosedTrade, ManagedPosition
 from shared.models import Balance, OpenPosition
 
@@ -132,6 +134,37 @@ def format_daily_report(
             f"- signals/executed {_code(f'{signal_count}/{executed_count}')}",
         ]
     )
+
+
+def format_advisory(advisory: PortfolioAdvisory) -> str:
+    health_icons = {"healthy": "OK", "caution": "CAUTION", "warning": "WARNING"}
+    icon = health_icons.get(advisory.portfolio_health, advisory.portfolio_health.upper())
+    lines = [
+        f"Portfolio Advisory [{icon}]",
+        f"- health {_code(advisory.portfolio_health)}",
+    ]
+    for rec in advisory.recommendations:
+        lines.append(f"- {_code(rec)}")
+    if advisory.suggested_actions:
+        lines.append("Actions:")
+        for action in advisory.suggested_actions:
+            lines.append(f"  - {_code(action)}")
+    lines.append(f"- reasoning {_code(advisory.reasoning)}")
+    return "\n".join(lines)
+
+
+def format_risk_alert(alert: RiskAlert) -> str:
+    severity_icons = {"info": "INFO", "warning": "WARNING", "critical": "CRITICAL"}
+    icon = severity_icons.get(alert.severity, alert.severity.upper())
+    lines = [
+        f"Risk Alert [{icon}]",
+        f"- type {_code(alert.alert_type)}",
+    ]
+    if alert.pair:
+        lines.append(f"- pair {_code(alert.pair)}")
+    lines.append(f"- {_code(alert.message)}")
+    lines.append(f"- value {_code(f'{alert.current_value:.4f}')} threshold {_code(f'{alert.threshold:.4f}')}")
+    return "\n".join(lines)
 
 
 def format_approval_request(request: ApprovalRequest) -> str:

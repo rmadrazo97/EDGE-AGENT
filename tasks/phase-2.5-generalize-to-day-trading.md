@@ -1,7 +1,7 @@
 ---
 phase: 2.5
 title: Generalize from Short-Only to Day Trading
-status: pending
+status: completed
 depends_on: phase-2.3
 ---
 

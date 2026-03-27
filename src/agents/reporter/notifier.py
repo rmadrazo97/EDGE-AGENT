@@ -11,15 +11,19 @@ from pathlib import Path
 from telegram import Bot, Message
 from telegram.constants import ParseMode
 
+from agents.advisor.models import PortfolioAdvisory
 from agents.analyst.signals import TradeSignal
 from agents.reporter.approvals import ApprovalResolution, ApprovalStore
 from agents.reporter.formatters import (
+    format_advisory,
     format_approval_request,
     format_close_alert,
     format_daily_loss_halt,
+    format_risk_alert,
     format_stop_loss_alert,
     format_trade_alert,
 )
+from agents.risk_monitor.models import RiskAlert
 from policy.models import PolicyDecision, TradeProposal
 from shared.config import ClientSettings
 
@@ -145,6 +149,12 @@ class TelegramNotifier:
                 loss_limit_pct=loss_limit_pct,
             )
         )
+
+    def send_advisory(self, advisory: PortfolioAdvisory) -> None:
+        self._send(format_advisory(advisory))
+
+    def send_risk_alert(self, alert: RiskAlert) -> None:
+        self._send(format_risk_alert(alert))
 
     def send_periodic_report(self, text: str) -> None:
         self._send(text)
