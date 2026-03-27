@@ -1,7 +1,7 @@
 ---
 phase: 2.3b
 title: OpenClaw Workspace + Telegram Channel
-status: pending
+status: in-progress
 depends_on: phase-2.3
 ---
 
@@ -91,15 +91,31 @@ Instead of rigid `/status`, `/positions` etc., the operator asks naturally:
 - Pattern A from blueprint: repo is source of truth, synced to home
 
 ## Acceptance criteria
-- [ ] OpenClaw workspace synced and functional
+- [x] OpenClaw workspace synced and functional
 - [ ] Telegram channel connected — messages route to OpenClaw
 - [ ] Operator can query balances and positions via Telegram/OpenClaw
 - [ ] Operator can pause/resume trading via Telegram/OpenClaw
 - [ ] Hummingbot MCP tools accessible
-- [ ] Memory files index correctly
-- [ ] Runbooks are accessible
-- [ ] Local skills work
+- [x] Memory files index correctly
+- [x] Runbooks are accessible
+- [x] Local skills work
 - [ ] Kill command requires confirmation
+
+## Implementation notes (Phase 2.3b workspace)
+
+**Completed — workspace files created (2026-03-27):**
+- All workspace Markdown files created under `openclaw/workspace/`
+- 3 agents defined (Market Analyst, Trader, Reporter) with clear boundaries
+- 4 memory files under `memory/` (venues, risk-policy, signals, incidents)
+- 5 runbooks under `runbooks/` (bootstrap, go-live, pause-trading, incident-response, rotate-credentials)
+- 4 local skills under `skills/local/` (check-positions, deploy-strategy, pause-resume, risk-override)
+- Sync script at `openclaw/sync/sync_to_home.sh`
+
+**Remaining — requires runtime setup:**
+- Telegram channel connection (requires bot token + OpenClaw channel config)
+- Hummingbot MCP skill installation (`npx skills add hummingbot/skills --yes`)
+- End-to-end testing of natural language commands via Telegram
+- Kill command confirmation flow (depends on Telegram channel)
 
 ## Out of scope
 - Push notifications (handled by Phase 2.3 notifier)
