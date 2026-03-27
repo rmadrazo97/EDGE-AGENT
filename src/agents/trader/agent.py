@@ -14,6 +14,7 @@ from typing import Callable
 
 from agents.analyst.agent import MarketAnalystAgent
 from agents.analyst.signals import ShortSignal
+from agents.reporter.approvals import ApprovalStore
 from agents.trader.position_manager import PositionManager
 from agents.trader.prompts import TRADER_SYSTEM_PROMPT, build_trader_review_prompt
 from clients.market_data import MarketDataClient
@@ -51,6 +52,7 @@ class TraderAgent:
         *,
         policy_engine: PolicyEngine | None = None,
         position_manager: PositionManager | None = None,
+        approval_store: ApprovalStore | None = None,
         analyst_agent: MarketAnalystAgent | None = None,
         trading_client: TradingClient | None = None,
         portfolio_client: PortfolioClient | None = None,
@@ -61,6 +63,7 @@ class TraderAgent:
         self.settings = settings or ClientSettings.from_env()
         self.policy_engine = policy_engine or PolicyEngine()
         self.position_manager = position_manager or PositionManager()
+        self.approval_store = approval_store
         self.analyst_agent = analyst_agent
         self.trading_client = trading_client
         self.portfolio_client = portfolio_client
@@ -118,6 +121,8 @@ class TraderAgent:
         trading: TradingClient,
         portfolio: PortfolioClient,
         market: MarketDataClient,
+        require_approval: bool = True,
+        size_override: float | None = None,
     ) -> PolicyDecision:
         balances = portfolio.get_balances()
         live_positions = trading.get_positions()
@@ -129,6 +134,8 @@ class TraderAgent:
             current_prices=current_prices,
         )
         proposal = self._build_trade_proposal(signal, account_state)
+        if size_override is not None:
+            proposal = proposal.model_copy(update={"size": min(proposal.size, size_override)})
         decision = self.policy_engine.evaluate(proposal, account_state)
 
         if not decision.approved:
@@ -137,6 +144,19 @@ class TraderAgent:
                 pair=signal.pair,
                 violations=decision.violations,
                 warnings=decision.warnings,
+            )
+            return decision
+
+        if require_approval and self.approval_store is not None and (
+            decision.warnings or decision.adjusted_size is not None
+        ):
+            approval_request = self.approval_store.create(signal, proposal, decision)
+            self._record(
+                "approval_requested",
+                request_id=approval_request.request_id,
+                pair=signal.pair,
+                warnings=decision.warnings,
+                adjusted_size=decision.adjusted_size,
             )
             return decision
 
@@ -157,12 +177,46 @@ class TraderAgent:
         self._record(
             "trade_opened",
             pair=signal.pair,
+            side="short",
             size=size_to_execute,
+            entry_price=signal.entry_price,
             leverage=proposal.leverage,
             order_id=submission.order_id,
+            reasoning=signal.reasoning,
             stop_loss=stop_loss.model_dump(mode="json"),
             warnings=decision.warnings,
         )
+        return decision
+
+    def execute_approved_request(
+        self,
+        request_id: str,
+        *,
+        trading: TradingClient,
+        portfolio: PortfolioClient,
+        market: MarketDataClient,
+    ) -> PolicyDecision:
+        if self.approval_store is None:
+            raise ValueError("Approval store is not configured.")
+
+        approval_request = self.approval_store.get(request_id)
+        if approval_request is None:
+            raise KeyError(request_id)
+        if approval_request.status != "approved":
+            raise ValueError(f"Approval request {request_id} is not approved.")
+        if approval_request.executed:
+            raise ValueError(f"Approval request {request_id} has already been executed.")
+
+        decision = self.process_signal(
+            approval_request.signal,
+            trading=trading,
+            portfolio=portfolio,
+            market=market,
+            require_approval=False,
+            size_override=approval_request.size_override,
+        )
+        if decision.approved:
+            self.approval_store.mark_executed(request_id)
         return decision
 
     def _review_position_for_exit(
@@ -215,6 +269,9 @@ class TraderAgent:
             order_id=submission.order_id,
             reason=arguments["reason"],
             realized_pnl=closed_trade.realized_pnl,
+            entry_price=closed_trade.entry_price,
+            exit_price=closed_trade.exit_price,
+            duration_seconds=(closed_trade.closed_at - closed_trade.opened_at).total_seconds(),
         )
         return True
 

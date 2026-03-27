@@ -40,10 +40,31 @@ Populate `.env` with your own credentials. Never commit real secrets, runtime st
 - `make test-trade`
 - `make analyst-once`
 - `make trader-once`
+- `make telegram-bot`
 
 `make test-trade` runs a hardcoded BTC-USDT Binance Futures demo short through Hummingbot, arms a managed 3% stop-loss trigger locally, waits 60 seconds, and then closes the position while logging the full lifecycle to `runtime/test-trade/*.jsonl`.
 `make analyst-once` runs one Moonshot-backed market analysis cycle for the configured analyst pairs and logs the cycle results to `runtime/analyst/*.jsonl`.
 `make trader-once` runs one trader cycle: consume analyst signals, evaluate them through policy, open approved testnet shorts, and review open positions for model-driven exits while persisting state to `runtime/trader/state.json`.
+`make telegram-bot` starts the Telegram operator bot for `/status`, `/positions`, `/balance`, `/signals`, `/pause`, `/resume`, `/kill`, `/risk`, and `/pnl`, plus approval prompts and periodic reports.
+
+## Telegram Bot
+
+Phase 2.3 adds a Telegram operator interface under `src/agents/reporter/`:
+
+- `telegram_bot.py` boots the polling bot and scheduled jobs
+- `commands.py` handles operator commands, approval callbacks, and runtime event polling
+- `formatters.py` formats concise mobile-first alerts and reports
+- `approvals.py` persists pending approval requests under `runtime/reporter/approvals.json`
+
+Required local `.env` settings:
+
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_OPERATOR_CHAT_ID`
+- `EDGE_AGENT_TELEGRAM_REPORT_INTERVAL_HOURS` (default `4`)
+- `EDGE_AGENT_TELEGRAM_DAILY_REPORT_TIME` (default `21:00`)
+- `EDGE_AGENT_TIMEZONE` (default `UTC`)
+
+The bot only responds to the configured `TELEGRAM_OPERATOR_CHAT_ID`. All operator commands are audit-logged to `runtime/audit/telegram.jsonl`.
 
 ## Infrastructure Stack
 

@@ -1,23 +1,28 @@
 ---
 phase: 2.3
-title: Telegram Bot
-status: pending
+title: Telegram Notifications & Approvals
+status: in_progress
 depends_on: phase-2.1, phase-2.2
 ---
 
-# PRD: Telegram Bot
+# PRD: Telegram Notifications & Approvals
 
 ## Goal
-Build the Telegram bot that serves as the primary operator interface: reports, alerts, trade approvals, and quick commands.
+Build a thin Telegram notification layer for push alerts and approval buttons only. All conversational commands and queries are handled by OpenClaw via Telegram channel (Phase 2.3b).
+
+## What changed
+Previously this phase was a full Telegram bot with 10 command handlers. Now split into:
+- **Phase 2.3** (this): Push notifications + approval inline keyboards
+- **Phase 2.3b**: OpenClaw Telegram channel for commands/queries
 
 ## Requirements
 
-### Bot setup (`src/agents/reporter/`)
-- `telegram_bot.py` — bot initialization and handlers
-- `formatters.py` — message formatting for reports and alerts
-- `commands.py` — command handlers
+### Notification service (`src/agents/reporter/`)
+- `notifier.py` — sends push messages to operator's Telegram
+- `formatters.py` — message formatting for all notification types
+- `approvals.py` — inline keyboard approval flow with timeout
 
-### Notifications (push to operator)
+### Push notifications (event-driven, fired by agents)
 
 **Trade alerts:**
 - New position opened: pair, side, size, entry price, leverage, reasoning
@@ -27,48 +32,57 @@ Build the Telegram bot that serves as the primary operator interface: reports, a
 
 **Approval requests:**
 - When trader wants to act outside bounds
-- Inline keyboard: [Approve] [Reject] [Modify]
+- Inline keyboard: [Approve] [Reject]
 - Timeout: if no response in 5 minutes, auto-reject
+- Result logged to audit trail
 
 **Periodic reports:**
 - Every 4 hours: open positions summary, unrealized P&L
 - Daily (configurable time): full day summary — trades, P&L, win rate, signals generated vs executed
 
-### Commands (operator to system)
-
-| Command | Action |
-|---|---|
-| `/status` | Current positions, balance, daily P&L |
-| `/positions` | Detailed view of all open positions |
-| `/balance` | Account equity and available margin |
-| `/signals` | Recent signals (last 6h) |
-| `/pause` | Halt new trades (keep positions open) |
-| `/resume` | Resume trading |
-| `/kill` | Close all positions and halt trading |
-| `/risk` | Show current risk limits and usage |
-| `/pnl` | Today's realized + unrealized P&L |
+### Integration points
+- Trader agent calls `notifier.send_trade_alert()` after execution
+- Trader agent calls `notifier.request_approval()` for out-of-bounds proposals
+- Scheduled reports via a simple timer in the reporter agent loop
 
 ### Security
-- Bot responds only to configured Telegram user ID (your account)
-- All commands logged to audit log
-- `/kill` requires confirmation ("Type CONFIRM to close all positions")
+- Messages sent only to configured `TELEGRAM_OPERATOR_CHAT_ID`
+- Approval callbacks validated against operator user ID
+- All notifications and approvals logged to audit
 
 ### Message formatting
 - Clean, readable formatting with monospace for numbers
-- Use emoji sparingly: green/red for P&L, warning for alerts
-- Keep messages concise — this is mobile-first
+- Emoji sparingly: green/red for P&L, warning for alerts
+- Mobile-first: concise messages
 
 ## Acceptance criteria
-- [ ] Bot starts and responds to `/status`
 - [ ] Trade notifications arrive within 5 seconds of execution
-- [ ] Approval flow works: request → approve/reject → execution or cancellation
+- [ ] Approval flow works: request → inline button → execute or cancel
+- [x] Approval auto-rejects after 5 minute timeout
 - [ ] Daily report sends automatically at configured time
-- [ ] Only authorized user ID can interact
-- [ ] `/pause` and `/resume` toggle trading
-- [ ] `/kill` with confirmation closes all positions
+- [x] Only configured chat ID receives messages
+- [x] All notifications logged
+
+## Implementation notes
+- Added `src/agents/reporter/telegram_bot.py` to build and start a polling Telegram bot with scheduled jobs for runtime-event polling, periodic reports, and daily reports.
+- Added `src/agents/reporter/commands.py` as the current Telegram service surface. It covers notification delivery, approval callbacks, audit logging, and the existing direct operator commands already in use by this repo.
+- Added `src/agents/reporter/formatters.py` for concise HTML-formatted trade, approval, status, risk, and PnL messages.
+- Added `src/agents/reporter/approvals.py` for persistent approval state with timeout handling under `runtime/reporter/approvals.json`.
+- Added Telegram-specific configuration in `src/shared/config.py` for bot token, operator chat ID, report cadence, daily report time, and timezone.
+- Added `make telegram-bot`, documented the bot workflow in `README.md`, and expanded `.env.example` with the new Telegram settings.
+- Added audit logging for outgoing notifications in `runtime/audit/telegram.jsonl`.
+- Kept the implementation as a superset of the narrowed Phase 2.3 PRD: the notification and approval pieces are present, and the existing direct command handlers remain available instead of being deferred to a separate Phase 2.3b.
+
+## Verification completed
+- `python3 -m compileall src tests`
+- `python3 -m pytest -q`
+- `python3 -m pytest tests/unit/test_telegram_bot.py -q`
+- `python3 -m pytest tests/unit/test_approval_store.py -q`
+- Verified locally that `build_application(...)` succeeds in unit tests with configured Telegram settings and registers command handlers plus scheduled jobs.
+- Verified locally that Telegram credentials are not currently configured on this machine, so live bot polling and end-to-end chat verification remain pending.
 
 ## Out of scope
+- Command handlers (moved to OpenClaw via Phase 2.3b)
+- Conversational queries
 - Group chat support
-- Multiple authorized users
-- Voice/media messages
 - Web dashboard

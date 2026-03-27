@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Iterable
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
 
@@ -68,6 +69,15 @@ class ClientSettings(BaseModel):
     analyst_retry_backoff_seconds: float = Field(default=2.0)
     trader_default_leverage: int = Field(default=2)
     trader_review_interval_minutes: int = Field(default=5)
+    telegram_bot_token: str | None = Field(default=None)
+    telegram_operator_chat_id: int | None = Field(default=None)
+    telegram_report_interval_hours: int = Field(default=4)
+    telegram_daily_report_time: str = Field(default="21:00")
+    timezone_name: str = Field(default="UTC")
+
+    @property
+    def timezone(self) -> ZoneInfo:
+        return ZoneInfo(self.timezone_name)
 
     @classmethod
     def from_env(cls) -> "ClientSettings":
@@ -162,4 +172,21 @@ class ClientSettings(BaseModel):
                 _first_nonempty(("EDGE_AGENT_TRADER_REVIEW_INTERVAL_MINUTES",), env_values)
                 or "5"
             ),
+            telegram_bot_token=_first_nonempty(("TELEGRAM_BOT_TOKEN",), env_values),
+            telegram_operator_chat_id=(
+                int(_first_nonempty(("TELEGRAM_OPERATOR_CHAT_ID",), env_values))
+                if _first_nonempty(("TELEGRAM_OPERATOR_CHAT_ID",), env_values)
+                else None
+            ),
+            telegram_report_interval_hours=int(
+                _first_nonempty(("EDGE_AGENT_TELEGRAM_REPORT_INTERVAL_HOURS",), env_values)
+                or "4"
+            ),
+            telegram_daily_report_time=_first_nonempty(
+                ("EDGE_AGENT_TELEGRAM_DAILY_REPORT_TIME",),
+                env_values,
+            )
+            or "21:00",
+            timezone_name=_first_nonempty(("EDGE_AGENT_TIMEZONE", "TZ"), env_values)
+            or "UTC",
         )

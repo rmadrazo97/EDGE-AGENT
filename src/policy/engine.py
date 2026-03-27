@@ -40,6 +40,15 @@ class PolicyEngine:
         payload = yaml.safe_load(self.config_path.read_text()) or {}
         return RiskPolicyConfig.model_validate(payload)
 
+    def _write_config(self, config: RiskPolicyConfig) -> None:
+        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        self.config_path.write_text(
+            yaml.safe_dump(config.model_dump(), sort_keys=False),
+            encoding="utf-8",
+        )
+        self._config = config
+        self._config_mtime_ns = self.config_path.stat().st_mtime_ns
+
     def _append_audit(self, record: PolicyAuditRecord) -> None:
         with self.audit_log_path.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(record.model_dump(mode="json"), default=str) + "\n")
@@ -63,6 +72,19 @@ class PolicyEngine:
             )
 
         return self._config
+
+    def update_config(self, **changes: object) -> RiskPolicyConfig:
+        current = self._load_config_if_needed()
+        updated = current.model_copy(update=changes)
+        self._write_config(updated)
+        self._append_audit(
+            PolicyAuditRecord(
+                event="config_updated",
+                config=updated,
+                message=f"Policy config updated with keys: {sorted(changes)}",
+            )
+        )
+        return updated
 
     def evaluate(self, proposal: TradeProposal, account_state: AccountState) -> PolicyDecision:
         config = self._load_config_if_needed()
