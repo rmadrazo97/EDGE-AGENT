@@ -50,5 +50,27 @@ After the first week of live trading, review signal quality and improve the anal
 - [ ] Signal journal started in OpenClaw memory
 - [ ] Weekly Telegram report added
 
+## Implementation notes (Phase 3.2 tooling)
+
+Tooling implemented on 2026-03-27:
+
+### Files created
+- `tools/__init__.py` — empty package init
+- `tools/signal_export.py` — reads `runtime/analyst/*.jsonl` and `runtime/trader/*.jsonl`, matches signals to trade outcomes by pair + timestamp proximity (5 min window), outputs CSV
+- `tools/signal_metrics.py` — reads exported CSV, computes metrics (signal count, execution rate, win rate, avg win/loss, R:R, max drawdown, avg duration), breaks down by pair, side, and confidence bucket
+- `tools/signal_journal_update.py` — runs full pipeline and appends dated entry to `openclaw/workspace/memory/signals.md`
+
+### Makefile targets
+- `make signal-export` — export signals to `signals.csv`
+- `make signal-metrics` — export then print metrics table
+- `make signal-journal` — full pipeline including journal update
+
+### Design decisions
+- Stdlib + json/csv only (no pandas/numpy). All tools work with zero data.
+- Signal-to-trade matching uses pair + side + 5-minute timestamp window.
+- Confidence buckets: 0.70-0.80, 0.80-0.90, 0.90-1.00.
+- Journal appends (never overwrites) and removes placeholder text on first run.
+- All tools are importable as modules and runnable as CLI scripts.
+
 ## This is ongoing
 This phase doesn't "complete" — it's the continuous improvement loop. Mark done after the first iteration cycle, then it repeats.
