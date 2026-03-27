@@ -60,3 +60,38 @@ Responsibilities:
 - Fully autonomous multi-agent negotiation
 - Agent self-modification
 - Custom agent training/fine-tuning
+
+## Implementation Notes (Phase 4.1)
+
+### Advisor Agent (`src/agents/advisor/`)
+- `PortfolioAdvisorAgent` runs weekly (configurable via `EDGE_AGENT_ADVISOR_INTERVAL_DAYS`, default 7)
+- Uses Moonshot.ai with `emit_advisory` function calling tool to produce structured `PortfolioAdvisory` output
+- Collects: open positions, recent 7-day closed trades, risk usage (exposure/daily loss vs limits), market conditions for active pairs
+- Logs all advisory cycles to `runtime/advisor/*.jsonl`
+- Sends advisory summary to Telegram via `TelegramNotifier.send_advisory()`
+- System prompt emphasizes conservative bias: when in doubt, suggest reducing exposure
+
+### Risk Monitor Agent (`src/agents/risk_monitor/`)
+- `RiskMonitorAgent` runs on a fast loop (configurable via `EDGE_AGENT_RISK_MONITOR_INTERVAL_SECONDS`, default 120)
+- Pure rule-based checks, no LLM calls, for speed and reliability
+- Alert types implemented:
+  - `stop_proximity`: position unrealized loss >= 80% of stop-loss distance
+  - `exposure_limit`: total exposure >= 80% of max exposure limit
+  - `daily_loss_limit`: daily loss >= 80% of max daily loss limit
+  - `adverse_funding`: funding rate adverse for position direction (above 0.01% threshold)
+  - `unusual_volatility`: current volatility > 2x baseline (exponential moving average)
+- Emergency convergence detection: alerts operator when 2+ critical signals fire simultaneously
+- Logs all checks to `runtime/risk-monitor/*.jsonl`
+- Sends alerts via `TelegramNotifier.send_risk_alert()`
+
+### Config additions in `ClientSettings`
+- `advisor_interval_days` (env: `EDGE_AGENT_ADVISOR_INTERVAL_DAYS`, default 7)
+- `risk_monitor_interval_seconds` (env: `EDGE_AGENT_RISK_MONITOR_INTERVAL_SECONDS`, default 120)
+
+### Makefile targets
+- `make advisor-once` -- single advisory cycle
+- `make risk-monitor` -- continuous risk monitoring loop
+
+### Tests
+- `tests/unit/test_advisor.py` -- 7 tests covering advisory generation, no-tool-call handling, caution health, formatting, and summarization helpers
+- `tests/unit/test_risk_monitor.py` -- 17 tests covering all alert threshold checks (stop proximity, exposure, daily loss, funding rate, volatility), run_once integration, and formatting

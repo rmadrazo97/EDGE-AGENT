@@ -127,8 +127,14 @@ def _make_settings(**overrides) -> ClientSettings:
 
 # --- Stop proximity tests ---
 
+def _make_agent(**overrides):
+    defaults = dict(settings=_make_settings(), position_manager=StubPositionManager())
+    defaults.update(overrides)
+    return RiskMonitorAgent(**defaults)
+
+
 def test_stop_proximity_triggers_warning():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     position = OpenPosition(
         trading_pair="BTC-USDT",
         position_side="short",
@@ -155,7 +161,7 @@ def test_stop_proximity_triggers_warning():
 
 
 def test_stop_proximity_no_alert_when_safe():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     position = OpenPosition(
         trading_pair="BTC-USDT",
         position_side="short",
@@ -180,7 +186,7 @@ def test_stop_proximity_no_alert_when_safe():
 
 
 def test_stop_proximity_long_position():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     position = OpenPosition(
         trading_pair="ETH-USDT",
         position_side="long",
@@ -208,7 +214,7 @@ def test_stop_proximity_long_position():
 # --- Exposure tests ---
 
 def test_exposure_limit_triggers():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     positions = [
         OpenPosition(
             trading_pair="BTC-USDT",
@@ -225,7 +231,7 @@ def test_exposure_limit_triggers():
 
 
 def test_exposure_limit_safe():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     positions = [
         OpenPosition(
             trading_pair="BTC-USDT",
@@ -243,7 +249,7 @@ def test_exposure_limit_safe():
 # --- Daily loss tests ---
 
 def test_daily_loss_triggers():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     # Loss of 450 on 10000 equity = 4.5%, limit 5%, usage = 90%
     alert = agent.check_daily_loss(daily_pnl=-450.0, total_equity=10000.0, max_daily_loss_pct=0.05)
     assert alert is not None
@@ -251,14 +257,14 @@ def test_daily_loss_triggers():
 
 
 def test_daily_loss_safe():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     # Loss of 100 on 10000 equity = 1%, limit 5%, usage = 20%
     alert = agent.check_daily_loss(daily_pnl=-100.0, total_equity=10000.0, max_daily_loss_pct=0.05)
     assert alert is None
 
 
 def test_daily_loss_no_alert_when_positive():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     alert = agent.check_daily_loss(daily_pnl=200.0, total_equity=10000.0, max_daily_loss_pct=0.05)
     assert alert is None
 
@@ -266,7 +272,7 @@ def test_daily_loss_no_alert_when_positive():
 # --- Funding rate tests ---
 
 def test_funding_rate_adverse_for_short():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     # Negative funding is bad for shorts
     alert = agent.check_funding_rate("BTC-USDT", funding_rate=-0.0005, position_side="short")
     assert alert is not None
@@ -274,7 +280,7 @@ def test_funding_rate_adverse_for_short():
 
 
 def test_funding_rate_adverse_for_long():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     # Positive funding is bad for longs
     alert = agent.check_funding_rate("BTC-USDT", funding_rate=0.0005, position_side="long")
     assert alert is not None
@@ -282,14 +288,14 @@ def test_funding_rate_adverse_for_long():
 
 
 def test_funding_rate_favorable():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     # Positive funding is good for shorts
     alert = agent.check_funding_rate("BTC-USDT", funding_rate=0.0005, position_side="short")
     assert alert is None
 
 
 def test_funding_rate_no_position():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     alert = agent.check_funding_rate("BTC-USDT", funding_rate=-0.001, position_side=None)
     assert alert is None
 
@@ -297,14 +303,14 @@ def test_funding_rate_no_position():
 # --- Volatility tests ---
 
 def test_volatility_first_check_sets_baseline():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     alert = agent.check_volatility("BTC-USDT", current_volatility=1.5)
     assert alert is None
     assert "BTC-USDT" in agent._baseline_volatility
 
 
 def test_volatility_triggers_on_spike():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     agent._baseline_volatility["BTC-USDT"] = 1.0
     alert = agent.check_volatility("BTC-USDT", current_volatility=2.5)
     assert alert is not None
@@ -313,7 +319,7 @@ def test_volatility_triggers_on_spike():
 
 
 def test_volatility_no_alert_normal():
-    agent = RiskMonitorAgent(settings=_make_settings())
+    agent = _make_agent()
     agent._baseline_volatility["BTC-USDT"] = 1.0
     alert = agent.check_volatility("BTC-USDT", current_volatility=1.2)
     assert alert is None
