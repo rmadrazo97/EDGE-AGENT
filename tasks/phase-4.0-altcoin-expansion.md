@@ -1,7 +1,7 @@
 ---
 phase: 4.0
 title: Altcoin Pair Expansion
-status: pending
+status: in-progress
 depends_on: phase-3.2
 ---
 
@@ -39,8 +39,8 @@ Either extend the Market Analyst or create a lightweight scanner that:
 - Operator approval via Telegram to add new pair to active list
 
 ## Acceptance criteria
-- [ ] Scanner identifies top altcoin opportunities
-- [ ] Altcoin-specific risk rules enforced
+- [x] Scanner identifies top altcoin opportunities
+- [x] Altcoin-specific risk rules enforced
 - [ ] At least 3 altcoin pairs actively traded
 - [ ] No altcoin position exceeds 5% of equity
 - [ ] Operator approves new pairs via Telegram
@@ -49,3 +49,20 @@ Either extend the Market Analyst or create a lightweight scanner that:
 - DEX / on-chain pairs
 - Spot trading
 - Cross-exchange arbitrage
+
+## Implementation notes (Phase 4.0 scanner)
+
+### Files created
+- `src/agents/scanner/__init__.py` — package marker
+- `src/agents/scanner/models.py` — `PairOpportunity` and `AltcoinRiskConfig` Pydantic models
+- `src/agents/scanner/agent.py` — `AltcoinScannerAgent` with CLI (`python3 -m agents.scanner.agent --top N`)
+- `configs/risk/altcoins.yml` — altcoin-specific risk overrides (position size, exposure, leverage, volume floor)
+- `tests/unit/test_scanner.py` — unit tests covering scoring, volume filter, ranking order, error handling
+
+### Design decisions
+- **Read-only scanner**: the agent suggests pairs but never modifies `allowed_pairs`. Adding a pair still requires operator action (manual or via OpenClaw/Telegram).
+- **Weighted-sum scoring**: composite of volume (0.25), funding rate extremity (0.25), volatility (0.30), and spread tightness (0.20). No ML — intentionally simple and transparent.
+- **Injectable dependencies**: `MarketDataProvider` protocol allows test stubs; `AltcoinRiskConfig` is loaded from YAML but can be overridden in constructor.
+- **Graceful error handling**: per-pair API failures are logged and skipped; the scan continues with remaining pairs.
+- **25 default candidate pairs**: top Binance perpetuals by market cap; BTC-USDT and ETH-USDT are always excluded.
+- **Makefile target**: `make scan-altcoins` runs the scanner with `--top 10`.

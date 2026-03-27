@@ -1,0 +1,1 @@
+"""Altcoin opportunity scanner package."""

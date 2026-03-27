@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help up down logs smoke test test-trade analyst-once trader-once reporter scan-altcoins integration-test integration-report signal-export signal-metrics signal-journal
+.PHONY: help up down logs smoke test test-trade analyst-once trader-once reporter scan-altcoins integration-test integration-report signal-export signal-metrics signal-journal deploy rollback backup health
 
 help: ## Show available targets
 	@printf "EDGE-AGENT targets:\n\n"

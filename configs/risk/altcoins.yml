@@ -1,0 +1,6 @@
+# Altcoin-specific risk overrides (applied on top of base policy)
+max_single_position_pct: 0.05    # Half of BTC/ETH limit
+max_altcoin_exposure_pct: 0.15   # Total altcoin exposure cap
+max_stop_loss_pct: 0.05          # Wider stops for volatility
+max_leverage: 2                   # Lower leverage for altcoins
+min_24h_volume_usd: 10000000     # Minimum volume filter
