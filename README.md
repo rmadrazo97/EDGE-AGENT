@@ -37,6 +37,13 @@ Populate `.env` with your own credentials. Never commit real secrets, runtime st
 - `make logs`
 - `make smoke`
 - `make test`
+- `make test-trade`
+- `make analyst-once`
+- `make trader-once`
+
+`make test-trade` runs a hardcoded BTC-USDT Binance Futures demo short through Hummingbot, arms a managed 3% stop-loss trigger locally, waits 60 seconds, and then closes the position while logging the full lifecycle to `runtime/test-trade/*.jsonl`.
+`make analyst-once` runs one Moonshot-backed market analysis cycle for the configured analyst pairs and logs the cycle results to `runtime/analyst/*.jsonl`.
+`make trader-once` runs one trader cycle: consume analyst signals, evaluate them through policy, open approved testnet shorts, and review open positions for model-driven exits while persisting state to `runtime/trader/state.json`.
 
 ## Infrastructure Stack
 
@@ -48,6 +55,8 @@ Phase 1.1 wires a local Docker Compose stack in `infra/compose/docker-compose.de
 - `hummingbot/hummingbot-mcp` pinned by digest
 
 The Hummingbot API image does not currently expose `/health`, so the compose stack mounts a tiny wrapper module at `infra/compose/hummingbot_api_health.py` and starts `uvicorn` against that wrapped app to provide a stable health endpoint without forking the upstream image.
+
+For local host access, PostgreSQL is published on port `5454` to avoid collisions with other apps that already use the default `5432`.
 
 ## Infrastructure Quick Start
 
@@ -64,3 +73,5 @@ make down
 - `infra/env/mcp.env.example`
 
 Runtime state stays under `runtime/`, which remains gitignored.
+
+The Docker socket mount on the Hummingbot API container is intentional for local bot management only. Treat it as a privileged development-only setup, not a production default.

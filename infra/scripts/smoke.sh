@@ -3,7 +3,16 @@ set -eu
 
 ROOT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)"
 COMPOSE_FILE="$ROOT_DIR/infra/compose/docker-compose.dev.yml"
-AUTH_HEADER="Authorization: Basic $(printf 'admin:admin' | base64)"
+API_ENV="$ROOT_DIR/infra/env/api.env"
+
+if [ -f "$API_ENV" ]; then
+  # shellcheck disable=SC1090
+  . "$API_ENV"
+fi
+
+API_USERNAME="${EDGE_AGENT_API_USERNAME:-${HUMMINGBOT_API_USERNAME:-${USERNAME:-admin}}}"
+API_PASSWORD="${EDGE_AGENT_API_PASSWORD:-${HUMMINGBOT_API_PASSWORD:-${PASSWORD:-admin}}}"
+AUTH_HEADER="Authorization: Basic $(printf '%s:%s' "$API_USERNAME" "$API_PASSWORD" | base64)"
 
 wait_for_http() {
   url="$1"

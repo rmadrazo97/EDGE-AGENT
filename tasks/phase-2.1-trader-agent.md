@@ -1,7 +1,7 @@
 ---
 phase: 2.1
 title: Trader Agent
-status: pending
+status: in_progress
 depends_on: phase-2.0
 ---
 
@@ -56,12 +56,27 @@ Capped by:
 
 ## Acceptance criteria
 - [ ] Receives signals and executes trades on testnet
-- [ ] Position sizing respects all risk limits
-- [ ] Stop losses are always placed
-- [ ] Dynamic exits produce reasonable behavior
-- [ ] State survives agent restart
-- [ ] Daily loss limit halts trading when hit
-- [ ] All trades logged with full context
+- [x] Position sizing respects all risk limits
+- [x] Stop losses are always placed
+- [x] Dynamic exits produce reasonable behavior
+- [x] State survives agent restart
+- [x] Daily loss limit halts trading when hit
+- [x] All trades logged with full context
+
+## Implementation notes
+- Added `src/agents/trader/agent.py` with policy-wired signal processing, entry sizing, testnet execution, managed stop-loss arming, persistent JSONL trade logging, and Moonshot-backed exit reviews.
+- Added `src/agents/trader/position_manager.py` with persistent state in `runtime/trader/state.json`, open-position tracking, close-trade bookkeeping, and account-state assembly for policy evaluation.
+- Added `src/agents/trader/prompts.py` with a conservative exit-review prompt and close-position tool contract.
+- Wired the trader to `PolicyEngine` so every entry proposal is evaluated before any write action.
+- Added `make trader-once` plus trader-specific environment settings in `.env.example`.
+- Added unit coverage in `tests/unit/test_trader_agent.py` for approved entries, rejected signals, state persistence, and Moonshot-driven exit handling.
+
+## Current blocker
+- The trader entry/exit flow is implemented and unit tested, but I have not run `make trader-once` against live testnet positions in this pass because that would place and close actual demo trades. The remaining unchecked acceptance item is live testnet execution under the new trader orchestration path.
+
+## Verification completed
+- `python3 -m pytest tests/unit/test_trader_agent.py -q`
+- Verified policy-approved entry processing, policy rejection, state persistence across reload, and dynamic exit closure behavior through injected test doubles.
 
 ## Out of scope
 - Telegram integration (Phase 2.3)

@@ -73,6 +73,41 @@ def test_portfolio_client_flattens_balances() -> None:
     assert balances[0].token == "USDT"
 
 
+def test_portfolio_client_parses_oneway_positions() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/trading/positions"
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {
+                        "account_name": "master_account",
+                        "connector_name": "binance_perpetual_testnet",
+                        "trading_pair": "BTC-USDT",
+                        "side": "BOTH",
+                        "amount": -0.002,
+                        "entry_price": 66143.0,
+                        "unrealized_pnl": 0.15,
+                        "leverage": 2.0,
+                    }
+                ],
+                "pagination": {"limit": 100, "has_more": False, "next_cursor": None, "total_count": 1},
+            },
+        )
+
+    client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="http://testserver",
+    )
+
+    portfolio = PortfolioClient(settings=ClientSettings(), http_client=client)
+    positions = portfolio.get_positions()
+
+    assert len(positions) == 1
+    assert positions[0].position_side == "BOTH"
+    assert positions[0].amount == -0.002
+
+
 def test_client_raises_api_error_for_unsuccessful_response() -> None:
     def handler(_: httpx.Request) -> httpx.Response:
         return httpx.Response(400, json={"detail": "bad request"})
@@ -100,4 +135,3 @@ def test_accounts_client_requires_testnet_credentials() -> None:
 
     with pytest.raises(ValueError, match="Missing Binance testnet credentials"):
         accounts.connect_binance_testnet()
-

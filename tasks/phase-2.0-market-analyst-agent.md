@@ -1,7 +1,7 @@
 ---
 phase: 2.0
 title: Market Analyst Agent
-status: pending
+status: completed
 depends_on: phase-1.4
 ---
 
@@ -54,12 +54,28 @@ Before passing to trader:
 - Signals logged with full data snapshot for later review
 
 ## Acceptance criteria
-- [ ] Agent connects to Moonshot.ai and produces structured output
-- [ ] Signals conform to ShortSignal model
-- [ ] Agent runs on configurable interval
-- [ ] Low-confidence signals are filtered out
-- [ ] All cycles and signals are logged to file
-- [ ] Agent handles API errors gracefully (retries, backoff)
+- [x] Agent connects to Moonshot.ai and produces structured output
+- [x] Signals conform to ShortSignal model
+- [x] Agent runs on configurable interval
+- [x] Low-confidence signals are filtered out
+- [x] All cycles and signals are logged to file
+- [x] Agent handles API errors gracefully (retries, backoff)
+
+## Implementation notes
+- Added `src/agents/analyst/agent.py` with a configurable Moonshot-backed analysis loop, live market snapshot collection, retry/backoff handling, JSONL cycle logging, and deterministic signal filtering.
+- Added `src/agents/analyst/signals.py` with typed `MarketSnapshot`, `ProposedShortSignal`, `ShortSignal`, and `AnalystCycleRecord` models.
+- Added `src/agents/analyst/prompts.py` with a conservative short-bias analyst system prompt and structured market snapshot user prompt builder.
+- Added `src/shared/moonshot.py` as a minimal Moonshot chat completions client using the official OpenAI-compatible `/v1/chat/completions` API and function/tool calling.
+- Updated the Moonshot client to use `temperature=1.0`, which is required by the currently configured `kimi-k2.5` model.
+- Extended `src/shared/config.py` and `.env.example` with analyst and Moonshot configuration settings, and added `make analyst-once` for a single-cycle run.
+- Added unit coverage in `tests/unit/test_market_analyst.py` for accepted signals, low-confidence filtering, existing-position suppression, no-tool-call behavior, and retry handling.
+
+## Verification completed
+- `python3 -m pytest tests/unit/test_market_analyst.py tests/unit/test_api_clients.py tests/unit/test_trading_client.py tests/unit/test_package_layout.py tests/unit/test_config.py -q`
+- `make up`
+- `make smoke`
+- `make analyst-once`
+- `make analyst-once` successfully collected live BTC/ETH testnet market snapshots, completed live Moonshot API calls, and logged clean `no_signal` cycle records for both pairs in `runtime/analyst/*.jsonl`.
 
 ## Open questions
 - What Moonshot.ai model specifically? (need to confirm with user)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 class MarketPrice(BaseModel):
@@ -79,7 +79,10 @@ class OpenPosition(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     trading_pair: str
-    position_side: str
+    position_side: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("position_side", "side"),
+    )
     unrealized_pnl: float
     entry_price: float
     amount: float
@@ -91,4 +94,3 @@ class OpenPosition(BaseModel):
 class PositionsResponse(BaseModel):
     data: list[OpenPosition] = Field(default_factory=list)
     pagination: Pagination
-

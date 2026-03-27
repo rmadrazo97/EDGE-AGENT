@@ -1,7 +1,7 @@
 ---
 phase: 2.2
 title: Risk Policy Layer
-status: pending
+status: completed
 depends_on: phase-1.4
 ---
 
@@ -65,13 +65,24 @@ class PolicyDecision:
 - Existing positions are NOT auto-closed (that's a separate decision)
 
 ## Acceptance criteria
-- [ ] All 9 rules implemented and unit tested
-- [ ] Policy rejects trades that violate any rule
-- [ ] Policy warns when approaching limits (e.g., 80% of daily loss)
-- [ ] Config changes take effect without restart
-- [ ] Every evaluation is audit logged
-- [ ] Kill switch works immediately
-- [ ] 100% unit test coverage on rules
+- [x] All 9 rules implemented and unit tested
+- [x] Policy rejects trades that violate any rule
+- [x] Policy warns when approaching limits (e.g., 80% of daily loss)
+- [x] Config changes take effect without restart
+- [x] Every evaluation is audit logged
+- [x] Kill switch works immediately
+- [x] 100% unit test coverage on rules
+
+## Implementation notes
+- Added `src/policy/models.py` with typed `RiskPolicyConfig`, `TradeProposal`, `AccountState`, `PolicyDecision`, and audit record models.
+- Added `src/policy/rules.py` with pure helpers for stop-loss distance, risk amount, exposure caps, and daily-loss calculations.
+- Added `src/policy/engine.py` with YAML-backed config loading, automatic reload-on-change, append-only audit logging to `runtime/audit/policy.jsonl`, size adjustment, warnings, and approval/rejection logic.
+- Added the committed default config at `configs/risk/policy.yml`.
+- Exported the policy surfaces from `src/policy/__init__.py`.
+
+## Verification completed
+- `python3 -m pytest tests/unit/test_policy_engine.py -q`
+- Verified rule helpers, kill switch, pair/leverage/stop-loss violations, size adjustment, warning thresholds, zero remaining exposure rejection, and config reload audit logging.
 
 ## Out of scope
 - Approval workflow (Phase 2.3 — policy just says approved/rejected)

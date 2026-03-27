@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help up down logs smoke test
+.PHONY: help up down logs smoke test test-trade analyst-once trader-once
 
 help: ## Show available targets
 	@printf "EDGE-AGENT targets:\n\n"
@@ -20,3 +20,12 @@ smoke: ## Verify the local infrastructure health
 
 test: ## Run the Python test suite
 	python3 -m pytest
+
+test-trade: ## Run the hardcoded BTC-USDT short pipeline on testnet
+	@python3 -m strategies.controllers.test_short
+
+analyst-once: ## Run a single market analyst cycle
+	@python3 -m agents.analyst.agent --once
+
+trader-once: ## Run a single trader cycle
+	@python3 -m agents.trader.agent --once

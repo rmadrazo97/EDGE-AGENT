@@ -1,2 +1,1 @@
 """Market analyst agent package."""
-

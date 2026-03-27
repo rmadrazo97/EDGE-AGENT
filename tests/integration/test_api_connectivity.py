@@ -8,6 +8,8 @@ from pathlib import Path
 import httpx
 import pytest
 
+from shared.config import _parse_env_file
+
 
 API_BASE_URL = os.getenv("EDGE_AGENT_API_URL", "http://localhost:8000")
 API_USERNAME = os.getenv("EDGE_AGENT_API_USERNAME")
@@ -20,13 +22,7 @@ def _load_local_api_credentials() -> tuple[str, str]:
         return API_USERNAME, API_PASSWORD
 
     if API_ENV_PATH.exists():
-        values: dict[str, str] = {}
-        for line in API_ENV_PATH.read_text().splitlines():
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            values[key.strip()] = value.strip()
-
+        values = _parse_env_file(API_ENV_PATH)
         username = values.get("USERNAME")
         password = values.get("PASSWORD")
         if username and password:
@@ -89,4 +85,3 @@ def test_market_data_prices_endpoint_returns_expected_shape(api_client: httpx.Cl
     assert set(payload["prices"]) == {"BTC-USDT", "ETH-USDT"}
     assert all(isinstance(price, (int, float)) for price in payload["prices"].values())
     assert isinstance(payload["timestamp"], (int, float))
-

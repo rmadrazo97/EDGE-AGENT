@@ -42,6 +42,12 @@ def _first_nonempty(keys: Iterable[str], values: dict[str, str]) -> str | None:
     return None
 
 
+def _parse_csv(value: str | None) -> list[str]:
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 class ClientSettings(BaseModel):
     api_base_url: str = Field(default="http://localhost:8000")
     api_username: str = Field(default="admin")
@@ -52,6 +58,16 @@ class ClientSettings(BaseModel):
     candles_connector: str = Field(default="binance_perpetual")
     binance_testnet_api_key: str | None = Field(default=None)
     binance_testnet_api_secret: str | None = Field(default=None)
+    moonshot_api_key: str | None = Field(default=None)
+    moonshot_api_base_url: str = Field(default="https://api.moonshot.ai/v1")
+    moonshot_model: str = Field(default="kimi-k2.5")
+    analyst_interval_minutes: int = Field(default=15)
+    analyst_pairs: list[str] = Field(default_factory=lambda: ["BTC-USDT", "ETH-USDT"])
+    analyst_confidence_threshold: float = Field(default=0.7)
+    analyst_max_retries: int = Field(default=3)
+    analyst_retry_backoff_seconds: float = Field(default=2.0)
+    trader_default_leverage: int = Field(default=2)
+    trader_review_interval_minutes: int = Field(default=5)
 
     @classmethod
     def from_env(cls) -> "ClientSettings":
@@ -103,5 +119,47 @@ class ClientSettings(BaseModel):
             binance_testnet_api_secret=_first_nonempty(
                 ("BINANCE_TESTNET_API_SECRET", "BINANCE_SECRET"),
                 env_values,
+            ),
+            moonshot_api_key=_first_nonempty(("MOONSHOT_API_KEY",), env_values),
+            moonshot_api_base_url=_first_nonempty(
+                ("MOONSHOT_API_BASE_URL",),
+                env_values,
+            )
+            or "https://api.moonshot.ai/v1",
+            moonshot_model=_first_nonempty(
+                ("MOONSHOT_MODEL",),
+                env_values,
+            )
+            or "kimi-k2.5",
+            analyst_interval_minutes=int(
+                _first_nonempty(("EDGE_AGENT_ANALYST_INTERVAL_MINUTES",), env_values)
+                or "15"
+            ),
+            analyst_pairs=_parse_csv(
+                _first_nonempty(("EDGE_AGENT_ANALYST_PAIRS",), env_values)
+            )
+            or ["BTC-USDT", "ETH-USDT"],
+            analyst_confidence_threshold=float(
+                _first_nonempty(("EDGE_AGENT_ANALYST_CONFIDENCE_THRESHOLD",), env_values)
+                or "0.7"
+            ),
+            analyst_max_retries=int(
+                _first_nonempty(("EDGE_AGENT_ANALYST_MAX_RETRIES",), env_values)
+                or "3"
+            ),
+            analyst_retry_backoff_seconds=float(
+                _first_nonempty(
+                    ("EDGE_AGENT_ANALYST_RETRY_BACKOFF_SECONDS",),
+                    env_values,
+                )
+                or "2.0"
+            ),
+            trader_default_leverage=int(
+                _first_nonempty(("EDGE_AGENT_TRADER_DEFAULT_LEVERAGE",), env_values)
+                or "2"
+            ),
+            trader_review_interval_minutes=int(
+                _first_nonempty(("EDGE_AGENT_TRADER_REVIEW_INTERVAL_MINUTES",), env_values)
+                or "5"
             ),
         )
