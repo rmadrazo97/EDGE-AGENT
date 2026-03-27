@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Callable
 
 from agents.analyst.agent import MarketAnalystAgent
-from agents.analyst.signals import ShortSignal
+from agents.analyst.signals import TradeSignal
 from agents.reporter.approvals import ApprovalStore
 from agents.reporter.notifier import TelegramNotifier
 from agents.trader.position_manager import PositionManager
@@ -35,7 +35,7 @@ class TraderAgent:
         "type": "function",
         "function": {
             "name": "close_position",
-            "description": "Close an existing short position immediately.",
+            "description": "Close an existing position immediately.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -90,12 +90,12 @@ class TraderAgent:
             stream.write(json.dumps(payload, default=str) + "\n")
         LOGGER.info("%s %s", event, details)
 
-    def _build_trade_proposal(self, signal: ShortSignal, account_state) -> TradeProposal:
+    def _build_trade_proposal(self, signal: TradeSignal, account_state) -> TradeProposal:
         config = self.policy_engine.config
         leverage = min(float(self.settings.trader_default_leverage), float(config.max_leverage))
-        stop_distance = signal.stop_loss_price - signal.entry_price
+        stop_distance = abs(signal.stop_loss_price - signal.entry_price)
         if stop_distance <= 0:
-            raise ValueError("Signal stop loss must be above entry price for a short.")
+            raise ValueError("Signal stop loss must be away from entry price.")
 
         risk_budget = account_state.total_equity * config.max_risk_per_trade_pct
         size_by_risk = risk_budget / stop_distance
@@ -108,7 +108,7 @@ class TraderAgent:
 
         return TradeProposal(
             pair=signal.pair,
-            side="short",
+            side=signal.side,
             size=max(requested_size, 0.0),
             leverage=leverage,
             entry_price=signal.entry_price,
@@ -122,7 +122,7 @@ class TraderAgent:
 
     def process_signal(
         self,
-        signal: ShortSignal,
+        signal: TradeSignal,
         *,
         trading: TradingClient,
         portfolio: PortfolioClient,
@@ -195,8 +195,11 @@ class TraderAgent:
             return PolicyDecision(approved=False, violations=["calculated trade size was zero"], warnings=[])
 
         trading.set_position_mode("ONEWAY")
-        submission = trading.open_short(signal.pair, Decimal(str(size_to_execute)), int(proposal.leverage))
-        stop_loss = trading.set_stop_loss(signal.pair, signal.stop_loss_price)
+        if signal.side == "long":
+            submission = trading.open_long(signal.pair, Decimal(str(size_to_execute)), int(proposal.leverage))
+        else:
+            submission = trading.open_short(signal.pair, Decimal(str(size_to_execute)), int(proposal.leverage))
+        stop_loss = trading.set_stop_loss(signal.pair, signal.stop_loss_price, side=signal.side)
         self.position_manager.record_open(
             signal=signal,
             size=size_to_execute,
@@ -206,7 +209,7 @@ class TraderAgent:
         self._record(
             "trade_opened",
             pair=signal.pair,
-            side="short",
+            side=signal.side,
             size=size_to_execute,
             entry_price=signal.entry_price,
             leverage=proposal.leverage,
@@ -217,7 +220,7 @@ class TraderAgent:
         )
         self.notifier.send_trade_alert(
             pair=signal.pair,
-            side="short",
+            side=signal.side,
             size=size_to_execute,
             entry_price=signal.entry_price,
             leverage=proposal.leverage,
@@ -304,7 +307,7 @@ class TraderAgent:
                 moonshot=moonshot,
             )
 
-    def run_once(self, signals: list[ShortSignal] | None = None) -> list[PolicyDecision]:
+    def run_once(self, signals: list[TradeSignal] | None = None) -> list[PolicyDecision]:
         with ExitStack() as stack:
             trading = self.trading_client or stack.enter_context(TradingClient(settings=self.settings))
             portfolio = self.portfolio_client or stack.enter_context(PortfolioClient(settings=self.settings))

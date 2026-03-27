@@ -8,13 +8,14 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from agents.analyst.signals import ShortSignal
+from agents.analyst.signals import TradeSignal
 from policy.models import AccountState
 from shared.models import Balance, OpenPosition
 
 
 class ManagedPosition(BaseModel):
     pair: str
+    side: str
     size: float
     entry_price: float
     stop_loss_price: float
@@ -63,13 +64,14 @@ class PositionManager:
     def record_open(
         self,
         *,
-        signal: ShortSignal,
+        signal: TradeSignal,
         size: float,
         leverage: float,
         order_id: str,
     ) -> ManagedPosition:
         position = ManagedPosition(
             pair=signal.pair,
+            side=signal.side,
             size=size,
             entry_price=signal.entry_price,
             stop_loss_price=signal.stop_loss_price,
@@ -84,7 +86,10 @@ class PositionManager:
 
     def record_close(self, pair: str, *, exit_price: float, reason: str) -> ClosedTrade:
         position = self.state.open_positions.pop(pair)
-        realized_pnl = (position.entry_price - exit_price) * position.size
+        if position.side == "short":
+            realized_pnl = (position.entry_price - exit_price) * position.size
+        else:
+            realized_pnl = (exit_price - position.entry_price) * position.size
         trade = ClosedTrade(
             pair=pair,
             size=position.size,

@@ -12,7 +12,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from agents.analyst.signals import ShortSignal
+from agents.analyst.signals import TradeSignal
 from policy.models import PolicyAuditRecord, PolicyDecision, TradeProposal
 
 
@@ -24,7 +24,7 @@ class ApprovalRequest(BaseModel):
     status: ApprovalStatus = "pending"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime
-    signal: ShortSignal
+    signal: TradeSignal
     proposal: TradeProposal
     policy_decision: PolicyDecision
     telegram_message_id: int | None = None
@@ -77,7 +77,7 @@ class ApprovalStore:
 
     def create(
         self,
-        signal: ShortSignal,
+        signal: TradeSignal,
         proposal: TradeProposal,
         decision: PolicyDecision,
         *,

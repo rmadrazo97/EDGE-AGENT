@@ -141,7 +141,7 @@ def format_approval_request(request: ApprovalRequest) -> str:
     return "\n".join(
         [
             "⚠️ Approval requested",
-            f"- pair {_code(request.proposal.pair)}",
+            f"- pair {_code(request.proposal.pair)} {_code(request.proposal.side.upper())}",
             f"- size {_code(f'{request.proposal.size:.6f}')} lev {_code(request.proposal.leverage)}",
             f"- confidence {_code(f'{request.signal.confidence:.2f}')}",
             f"- reason {_code(decision_summary)}",

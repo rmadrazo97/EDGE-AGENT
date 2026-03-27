@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from agents.analyst.signals import ShortSignal
+from agents.analyst.signals import TradeSignal
 from agents.reporter.approvals import ApprovalResolution, ApprovalStore
 from agents.reporter.formatters import (
     format_approval_request,
@@ -37,9 +37,10 @@ class FakeBot:
         return FakeTelegramMessage(message_id=len(self.messages))
 
 
-def sample_signal() -> ShortSignal:
-    return ShortSignal(
+def sample_signal() -> TradeSignal:
+    return TradeSignal(
         pair="BTC-USDT",
+        side="short",
         confidence=0.84,
         entry_price=65000.0,
         stop_loss_price=66500.0,
@@ -99,6 +100,7 @@ def sample_managed_positions() -> dict[str, ManagedPosition]:
     return {
         "BTC-USDT": ManagedPosition(
             pair="BTC-USDT",
+            side="short",
             size=0.002,
             entry_price=65000.0,
             stop_loss_price=66500.0,

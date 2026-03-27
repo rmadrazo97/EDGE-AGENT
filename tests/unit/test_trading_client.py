@@ -49,17 +49,67 @@ def test_open_short_sets_leverage_then_places_market_sell() -> None:
     ]
 
 
+def test_open_long_sets_leverage_then_places_market_buy() -> None:
+    calls: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path))
+        if request.url.path.endswith("/leverage"):
+            return httpx.Response(200, json={"status": "success", "message": "ok"})
+        if request.url.path == "/trading/orders":
+            return httpx.Response(
+                201,
+                json={
+                    "order_id": "order-2",
+                    "account_name": "master_account",
+                    "connector_name": "binance_perpetual_testnet",
+                    "trading_pair": "BTC-USDT",
+                    "trade_type": "BUY",
+                    "amount": "0.002",
+                    "order_type": "MARKET",
+                    "price": None,
+                    "status": "submitted",
+                },
+            )
+        raise AssertionError(request.url.path)
+
+    client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="http://testserver",
+    )
+    trading = TradingClient(settings=ClientSettings(), http_client=client)
+    submission = trading.open_long("BTC-USDT", Decimal("0.002"), 2)
+
+    assert submission.trade_type == "BUY"
+    assert calls == [
+        ("POST", "/trading/master_account/binance_perpetual_testnet/leverage"),
+        ("POST", "/trading/orders"),
+    ]
+
+
 def test_set_stop_loss_returns_managed_stop_record() -> None:
     trading = TradingClient(
         settings=ClientSettings(),
         http_client=httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200)), base_url="http://testserver"),
     )
 
-    stop_loss = trading.set_stop_loss("BTC-USDT", 70000.0)
+    stop_loss = trading.set_stop_loss("BTC-USDT", 70000.0, side="short")
 
     assert stop_loss.mode == "managed"
     assert stop_loss.status == "armed"
     assert stop_loss.trigger_above is True
+
+
+def test_set_stop_loss_for_long_triggers_below() -> None:
+    trading = TradingClient(
+        settings=ClientSettings(),
+        http_client=httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200)), base_url="http://testserver"),
+    )
+
+    stop_loss = trading.set_stop_loss("BTC-USDT", 64000.0, side="long")
+
+    assert stop_loss.side == "SELL"
+    assert stop_loss.trigger_above is False
 
 
 def test_trading_client_refuses_non_testnet_connector() -> None:

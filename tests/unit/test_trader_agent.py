@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from agents.analyst.signals import ShortSignal
+from agents.analyst.signals import TradeSignal
 from agents.trader.agent import TraderAgent
 from agents.trader.position_manager import PositionManager
 from clients.trading import ManagedStopLoss, TradeSubmission
@@ -18,7 +18,7 @@ from shared.moonshot import MoonshotChoice, MoonshotCompletion, MoonshotMessage,
 
 class StubTradingClient:
     def __init__(self) -> None:
-        self.open_calls: list[tuple[str, Decimal, int]] = []
+        self.open_calls: list[tuple[str, str, Decimal, int]] = []
         self.close_calls: list[str] = []
         self.position_mode_calls: list[str] = []
         self.positions: list[OpenPosition] = []
@@ -28,7 +28,7 @@ class StubTradingClient:
         return {"position_mode": mode}
 
     def open_short(self, pair: str, size: Decimal, leverage: int) -> TradeSubmission:
-        self.open_calls.append((pair, size, leverage))
+        self.open_calls.append(("short", pair, size, leverage))
         self.positions = [
             OpenPosition(
                 trading_pair=pair,
@@ -49,12 +49,34 @@ class StubTradingClient:
             status="submitted",
         )
 
-    def set_stop_loss(self, pair: str, price: float) -> ManagedStopLoss:
+    def open_long(self, pair: str, size: Decimal, leverage: int) -> TradeSubmission:
+        self.open_calls.append(("long", pair, size, leverage))
+        self.positions = [
+            OpenPosition(
+                trading_pair=pair,
+                position_side="BOTH",
+                unrealized_pnl=0.0,
+                entry_price=50000.0,
+                amount=float(size),
+            )
+        ]
+        return TradeSubmission(
+            order_id="order-2",
+            account_name="master_account",
+            connector_name="binance_perpetual_testnet",
+            trading_pair=pair,
+            trade_type="BUY",
+            amount=size,
+            order_type="MARKET",
+            status="submitted",
+        )
+
+    def set_stop_loss(self, pair: str, price: float, *, side: str) -> ManagedStopLoss:
         return ManagedStopLoss(
             trading_pair=pair,
             stop_price=price,
-            side="BUY",
-            trigger_above=True,
+            side="BUY" if side == "short" else "SELL",
+            trigger_above=side == "short",
             status="armed",
             created_at=datetime.now(timezone.utc),
             note="managed",
@@ -149,7 +171,7 @@ def make_close_completion(pair: str) -> MoonshotCompletion:
                             type="function",
                             function=MoonshotToolCallFunction(
                                 name="close_position",
-                                arguments=f'{{"pair":"{pair}","reason":"momentum turned against the short"}}',
+                                arguments=f'{{"pair":"{pair}","reason":"momentum turned against the position"}}',
                             ),
                         )
                     ],
@@ -184,6 +206,9 @@ def write_policy_config(path: Path) -> None:
                 "max_leverage: 3",
                 "require_stop_loss: true",
                 "max_stop_loss_pct: 0.03",
+                "allowed_sides:",
+                "  - long",
+                "  - short",
                 "allowed_pairs:",
                 "  - BTC-USDT",
                 "  - ETH-USDT",
@@ -192,9 +217,10 @@ def write_policy_config(path: Path) -> None:
     )
 
 
-def sample_signal() -> ShortSignal:
-    return ShortSignal(
+def sample_signal() -> TradeSignal:
+    return TradeSignal(
         pair="BTC-USDT",
+        side="short",
         confidence=0.85,
         entry_price=50000.0,
         stop_loss_price=51000.0,
@@ -235,15 +261,43 @@ def test_position_manager_persists_and_restores_state(tmp_path: Path) -> None:
     assert restored.daily_realized_pnl() == 1.0
 
 
-def test_trader_processes_policy_approved_signal(tmp_path: Path) -> None:
+def test_position_manager_calculates_long_pnl_directionally(tmp_path: Path) -> None:
+    manager = PositionManager(state_path=tmp_path / "state.json")
+    signal = sample_signal().model_copy(update={"side": "long", "stop_loss_price": 49000.0})
+
+    manager.record_open(signal=signal, size=0.002, leverage=2.0, order_id="open-1")
+    closed_trade = manager.record_close("BTC-USDT", exit_price=50500.0, reason="tp")
+
+    assert closed_trade.realized_pnl == 1.0
+
+
+def test_trader_processes_policy_approved_short_signal(tmp_path: Path) -> None:
     trader, trading = make_trader(tmp_path)
 
     decisions = trader.run_once([sample_signal()])
 
     assert decisions[0].approved is True
     assert trading.position_mode_calls == ["ONEWAY"]
-    assert trading.open_calls
+    assert trading.open_calls[0][0] == "short"
     assert trader.position_manager.get_open_position("BTC-USDT") is not None
+
+
+def test_trader_processes_policy_approved_long_signal(tmp_path: Path) -> None:
+    trader, trading = make_trader(tmp_path)
+    long_signal = sample_signal().model_copy(
+        update={
+            "side": "long",
+            "entry_price": 50000.0,
+            "stop_loss_price": 49000.0,
+            "reasoning": "valid long",
+        }
+    )
+
+    decisions = trader.run_once([long_signal])
+
+    assert decisions[0].approved is True
+    assert trading.open_calls[0][0] == "long"
+    assert trader.position_manager.get_open_position("BTC-USDT").side == "long"
 
 
 def test_trader_blocks_policy_rejected_signal(tmp_path: Path) -> None:

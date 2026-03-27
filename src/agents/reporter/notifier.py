@@ -11,7 +11,7 @@ from pathlib import Path
 from telegram import Bot, Message
 from telegram.constants import ParseMode
 
-from agents.analyst.signals import ShortSignal
+from agents.analyst.signals import TradeSignal
 from agents.reporter.approvals import ApprovalResolution, ApprovalStore
 from agents.reporter.formatters import (
     format_approval_request,
@@ -151,7 +151,7 @@ class TelegramNotifier:
 
     def request_approval(
         self,
-        signal: ShortSignal,
+        signal: TradeSignal,
         proposal: TradeProposal,
         decision: PolicyDecision,
     ) -> ApprovalResolution:

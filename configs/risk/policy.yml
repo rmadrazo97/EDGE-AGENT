@@ -6,6 +6,9 @@ max_single_position_pct: 0.10
 max_leverage: 3
 require_stop_loss: true
 max_stop_loss_pct: 0.03
+allowed_sides:
+  - long
+  - short
 allowed_pairs:
   - BTC-USDT
   - ETH-USDT

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Callable
 
 from agents.analyst.prompts import ANALYST_SYSTEM_PROMPT, build_analyst_user_prompt
-from agents.analyst.signals import AnalystCycleRecord, MarketSnapshot, ProposedShortSignal, ShortSignal
+from agents.analyst.signals import AnalystCycleRecord, MarketSnapshot, ProposedTradeSignal, TradeSignal
 from clients.base import HummingbotAPIConnectionError, HummingbotAPIError
 from clients.market_data import MarketDataClient
 from clients.portfolio import PortfolioClient
@@ -29,18 +29,19 @@ class MarketAnalystAgent:
     signal_tool = {
         "type": "function",
         "function": {
-            "name": "emit_short_signal",
-            "description": "Emit a conservative short signal when the setup is strong enough.",
+            "name": "emit_trade_signal",
+            "description": "Emit a conservative trade signal when the setup is strong enough.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "pair": {"type": "string", "enum": ["BTC-USDT", "ETH-USDT"]},
+                    "side": {"type": "string", "enum": ["long", "short"]},
                     "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                     "entry_price": {"type": "number", "exclusiveMinimum": 0},
                     "stop_loss_price": {"type": "number", "exclusiveMinimum": 0},
                     "reasoning": {"type": "string"},
                 },
-                "required": ["pair", "confidence", "entry_price", "stop_loss_price", "reasoning"],
+                "required": ["pair", "side", "confidence", "entry_price", "stop_loss_price", "reasoning"],
             },
         },
     }
@@ -134,7 +135,7 @@ class MarketAnalystAgent:
         snapshot: MarketSnapshot,
         *,
         moonshot: MoonshotClient,
-    ) -> ProposedShortSignal | None:
+    ) -> ProposedTradeSignal | None:
         completion = moonshot.chat_completion(
             system_prompt=ANALYST_SYSTEM_PROMPT,
             user_prompt=build_analyst_user_prompt(snapshot),
@@ -148,16 +149,18 @@ class MarketAnalystAgent:
             return None
 
         tool_call = message.tool_calls[0]
-        if tool_call.function.name != "emit_short_signal":
+        if tool_call.function.name != "emit_trade_signal":
             raise MoonshotAPIError(f"Unexpected tool call: {tool_call.function.name}")
 
-        return ProposedShortSignal.model_validate(
+        return ProposedTradeSignal.model_validate(
             MoonshotClient.parse_tool_arguments(tool_call)
         )
 
-    def _filter_signal(self, snapshot: MarketSnapshot, proposed: ProposedShortSignal) -> tuple[ShortSignal | None, str | None]:
+    def _filter_signal(self, snapshot: MarketSnapshot, proposed: ProposedTradeSignal) -> tuple[TradeSignal | None, str | None]:
         if proposed.pair != snapshot.pair:
             return None, "model_returned_mismatched_pair"
+        if proposed.side not in {"long", "short"}:
+            return None, "model_returned_invalid_side"
         if proposed.confidence < self.settings.analyst_confidence_threshold:
             return None, "confidence_below_threshold"
         if snapshot.open_position is not None:
@@ -167,7 +170,7 @@ class MarketAnalystAgent:
         if entry_deviation_pct > 0.02:
             return None, "entry_price_outside_reasonable_range"
 
-        signal = ShortSignal(
+        signal = TradeSignal(
             **proposed.model_dump(),
             data_snapshot=snapshot.model_dump(mode="json"),
         )
@@ -180,7 +183,7 @@ class MarketAnalystAgent:
         market: MarketDataClient,
         portfolio: PortfolioClient,
         moonshot: MoonshotClient,
-    ) -> ShortSignal | None:
+    ) -> TradeSignal | None:
         snapshot = self.collect_market_snapshot(pair, market=market, portfolio=portfolio)
         self._record(
             AnalystCycleRecord(
@@ -249,8 +252,8 @@ class MarketAnalystAgent:
                 self.sleep_fn(self.settings.analyst_retry_backoff_seconds * attempt)
         return None
 
-    def run_once(self) -> list[ShortSignal]:
-        signals: list[ShortSignal] = []
+    def run_once(self) -> list[TradeSignal]:
+        signals: list[TradeSignal] = []
         with ExitStack() as stack:
             market = self.market_data_client or stack.enter_context(MarketDataClient(settings=self.settings))
             portfolio = self.portfolio_client or stack.enter_context(PortfolioClient(settings=self.settings))

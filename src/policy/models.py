@@ -16,6 +16,7 @@ class RiskPolicyConfig(BaseModel):
     max_leverage: float = 3.0
     require_stop_loss: bool = True
     max_stop_loss_pct: float = 0.03
+    allowed_sides: list[str] = Field(default_factory=lambda: ["long", "short"])
     allowed_pairs: list[str] = Field(default_factory=lambda: ["BTC-USDT", "ETH-USDT"])
 
 

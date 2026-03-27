@@ -8,7 +8,7 @@ from policy.models import AccountState, RiskPolicyConfig, TradeProposal
 def stop_loss_distance_pct(proposal: TradeProposal) -> float | None:
     if proposal.stop_loss_price is None or proposal.entry_price <= 0:
         return None
-    return (proposal.stop_loss_price - proposal.entry_price) / proposal.entry_price
+    return abs(proposal.stop_loss_price - proposal.entry_price) / proposal.entry_price
 
 
 def position_notional(proposal: TradeProposal, *, size: float | None = None) -> float:

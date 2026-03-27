@@ -30,6 +30,9 @@ def write_policy_config(path: Path, *, trading_enabled: bool = True) -> None:
                 "max_leverage: 3",
                 "require_stop_loss: true",
                 "max_stop_loss_pct: 0.03",
+                "allowed_sides:",
+                "  - long",
+                "  - short",
                 "allowed_pairs:",
                 "  - BTC-USDT",
                 "  - ETH-USDT",
@@ -116,7 +119,7 @@ def test_policy_engine_rejects_pair_leverage_stop_and_side_violations(tmp_path: 
     decision = engine.evaluate(
         sample_proposal(
             pair="SOL-USDT",
-            side="long",
+            side="flat",
             leverage=5.0,
             stop_loss_price=None,
         ),
@@ -124,7 +127,7 @@ def test_policy_engine_rejects_pair_leverage_stop_and_side_violations(tmp_path: 
     )
 
     assert decision.approved is False
-    assert "only short trades are allowed" in decision.violations
+    assert "side flat is not allowed; allowed sides: long, short" in decision.violations
     assert "pair SOL-USDT is not allowed" in decision.violations
     assert "leverage 5.0 exceeds max leverage 3.0" in decision.violations
     assert "stop loss is required" in decision.violations
@@ -144,6 +147,21 @@ def test_policy_engine_rejects_stop_loss_distance_and_daily_loss_limit(tmp_path:
     assert decision.approved is False
     assert "stop loss distance 0.0400 exceeds max 0.0300" in decision.violations
     assert "daily loss limit exceeded: 0.0600 >= 0.0500" in decision.violations
+
+
+def test_policy_engine_rejects_long_stop_loss_on_wrong_side(tmp_path: Path) -> None:
+    config_path = tmp_path / "policy.yml"
+    audit_path = tmp_path / "policy.jsonl"
+    write_policy_config(config_path)
+    engine = PolicyEngine(config_path=config_path, audit_log_path=audit_path)
+
+    decision = engine.evaluate(
+        sample_proposal(side="long", stop_loss_price=50500.0),
+        sample_account_state(),
+    )
+
+    assert decision.approved is False
+    assert "stop loss must be below entry price for long trades" in decision.violations
 
 
 def test_policy_engine_adjusts_size_and_emits_warnings(tmp_path: Path) -> None:

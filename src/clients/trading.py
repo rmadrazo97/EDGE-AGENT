@@ -108,7 +108,7 @@ class TradingClient(HummingbotAPIClient):
         )
         return PositionModeResult.model_validate(payload)
 
-    def open_short(self, pair: str, size: Decimal, leverage: int) -> TradeSubmission:
+    def _open_position(self, pair: str, size: Decimal, leverage: int, *, trade_type: str) -> TradeSubmission:
         self._ensure_testnet_only()
         if size > self.max_test_position_size:
             raise ValueError(
@@ -123,7 +123,7 @@ class TradingClient(HummingbotAPIClient):
                 "account_name": self.settings.account_name,
                 "connector_name": self.settings.market_data_connector,
                 "trading_pair": pair,
-                "trade_type": "SELL",
+                "trade_type": trade_type,
                 "amount": str(size),
                 "order_type": "MARKET",
                 "position_action": "OPEN",
@@ -132,13 +132,20 @@ class TradingClient(HummingbotAPIClient):
         )
         return TradeSubmission.model_validate(payload)
 
-    def set_stop_loss(self, pair: str, price: float) -> ManagedStopLoss:
+    def open_short(self, pair: str, size: Decimal, leverage: int) -> TradeSubmission:
+        return self._open_position(pair, size, leverage, trade_type="SELL")
+
+    def open_long(self, pair: str, size: Decimal, leverage: int) -> TradeSubmission:
+        return self._open_position(pair, size, leverage, trade_type="BUY")
+
+    def set_stop_loss(self, pair: str, price: float, *, side: str = "short") -> ManagedStopLoss:
         self._ensure_testnet_only()
+        is_short = side.lower() == "short"
         return ManagedStopLoss(
             trading_pair=pair,
             stop_price=price,
-            side="BUY",
-            trigger_above=True,
+            side="BUY" if is_short else "SELL",
+            trigger_above=is_short,
             status="armed",
             created_at=datetime.now(timezone.utc),
             note=(

@@ -98,7 +98,7 @@ def make_completion(tool_arguments: str | None) -> MoonshotCompletion:
                 id="call-1",
                 type="function",
                 function=MoonshotToolCallFunction(
-                    name="emit_short_signal",
+                    name="emit_trade_signal",
                     arguments=tool_arguments,
                 ),
             )
@@ -137,7 +137,7 @@ def test_analyst_generates_signal_when_model_output_passes_filters() -> None:
         moonshot_client=StubMoonshotClient(
             [
                 make_completion(
-                    '{"pair":"BTC-USDT","confidence":0.82,"entry_price":64980.0,"stop_loss_price":66300.0,"reasoning":"Funding is positive, price is weak, and asks outweigh bids."}'
+                    '{"pair":"BTC-USDT","side":"short","confidence":0.82,"entry_price":64980.0,"stop_loss_price":66300.0,"reasoning":"Funding is positive, price is weak, and asks outweigh bids."}'
                 )
             ]
         ),
@@ -158,7 +158,7 @@ def test_analyst_filters_low_confidence_signal() -> None:
         moonshot_client=StubMoonshotClient(
             [
                 make_completion(
-                    '{"pair":"BTC-USDT","confidence":0.55,"entry_price":64980.0,"stop_loss_price":66300.0,"reasoning":"Weak setup."}'
+                    '{"pair":"BTC-USDT","side":"short","confidence":0.55,"entry_price":64980.0,"stop_loss_price":66300.0,"reasoning":"Weak setup."}'
                 )
             ]
         ),
@@ -187,7 +187,7 @@ def test_analyst_filters_signal_when_position_already_open() -> None:
         moonshot_client=StubMoonshotClient(
             [
                 make_completion(
-                    '{"pair":"BTC-USDT","confidence":0.85,"entry_price":64980.0,"stop_loss_price":66300.0,"reasoning":"Would otherwise be valid."}'
+                    '{"pair":"BTC-USDT","side":"short","confidence":0.85,"entry_price":64980.0,"stop_loss_price":66300.0,"reasoning":"Would otherwise be valid."}'
                 )
             ]
         ),
@@ -208,7 +208,7 @@ def test_analyst_retries_after_transient_moonshot_error() -> None:
             [
                 MoonshotAPIError("temporary upstream failure"),
                 make_completion(
-                    '{"pair":"BTC-USDT","confidence":0.8,"entry_price":64980.0,"stop_loss_price":66300.0,"reasoning":"Recovered on retry."}'
+                    '{"pair":"BTC-USDT","side":"short","confidence":0.8,"entry_price":64980.0,"stop_loss_price":66300.0,"reasoning":"Recovered on retry."}'
                 ),
             ]
         ),
@@ -219,6 +219,26 @@ def test_analyst_retries_after_transient_moonshot_error() -> None:
 
     assert len(signals) == 1
     assert sleep_calls == [0.5]
+
+
+def test_analyst_accepts_valid_long_signal() -> None:
+    agent = MarketAnalystAgent(
+        settings=make_settings(),
+        market_data_client=StubMarketDataClient(),
+        portfolio_client=StubPortfolioClient(),
+        moonshot_client=StubMoonshotClient(
+            [
+                make_completion(
+                    '{"pair":"BTC-USDT","side":"long","confidence":0.84,"entry_price":65020.0,"stop_loss_price":63850.0,"reasoning":"Bids are firm, funding is cooling, and momentum is reclaiming."}'
+                )
+            ]
+        ),
+    )
+
+    signals = agent.run_once()
+
+    assert len(signals) == 1
+    assert signals[0].side == "long"
 
 
 def test_analyst_returns_no_signal_when_model_declines_tool_call() -> None:

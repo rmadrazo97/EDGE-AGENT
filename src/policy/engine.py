@@ -91,8 +91,10 @@ class PolicyEngine:
         violations: list[str] = []
         warnings: list[str] = []
 
-        if proposal.side.lower() != "short":
-            violations.append("only short trades are allowed")
+        if proposal.side.lower() not in {side.lower() for side in config.allowed_sides}:
+            violations.append(
+                f"side {proposal.side} is not allowed; allowed sides: {', '.join(config.allowed_sides)}"
+            )
         if not config.trading_enabled:
             violations.append("trading is disabled by policy kill switch")
         if proposal.pair not in config.allowed_pairs:
@@ -103,6 +105,11 @@ class PolicyEngine:
             )
         if config.require_stop_loss and proposal.stop_loss_price is None:
             violations.append("stop loss is required")
+        if proposal.stop_loss_price is not None:
+            if proposal.side.lower() == "short" and proposal.stop_loss_price <= proposal.entry_price:
+                violations.append("stop loss must be above entry price for short trades")
+            if proposal.side.lower() == "long" and proposal.stop_loss_price >= proposal.entry_price:
+                violations.append("stop loss must be below entry price for long trades")
 
         stop_distance = stop_loss_distance_pct(proposal)
         if stop_distance is not None and stop_distance > config.max_stop_loss_pct:
