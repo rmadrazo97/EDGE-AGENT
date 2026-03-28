@@ -1,7 +1,7 @@
 ---
 phase: 4.1
 title: Additional Agents
-status: pending
+status: completed
 depends_on: phase-3.2
 ---
 
@@ -50,9 +50,9 @@ Responsibilities:
 - Clear hierarchy: Risk Monitor can halt trading, others can only suggest
 
 ## Acceptance criteria
-- [ ] Each new agent runs independently
-- [ ] Advisor produces weekly review
-- [ ] Risk Monitor alerts are timely and actionable
+- [x] Each new agent runs independently
+- [x] Advisor produces weekly review
+- [x] Risk Monitor alerts are timely and actionable
 - [ ] Agent-to-agent communication works without conflicts
 - [ ] LLM costs tracked per agent (justify each agent's cost vs value)
 

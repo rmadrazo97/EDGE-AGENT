@@ -1,7 +1,7 @@
 ---
 phase: 3.2
 title: Signal Quality Iteration
-status: pending
+status: tooling-complete
 depends_on: phase-3.0
 ---
 

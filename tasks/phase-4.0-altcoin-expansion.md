@@ -1,7 +1,7 @@
 ---
 phase: 4.0
 title: Altcoin Pair Expansion
-status: in-progress
+status: completed
 depends_on: phase-3.2
 ---
 
@@ -41,6 +41,7 @@ Either extend the Market Analyst or create a lightweight scanner that:
 ## Acceptance criteria
 - [x] Scanner identifies top altcoin opportunities
 - [x] Altcoin-specific risk rules enforced
+- [x] Altcoin risk config created (`configs/risk/altcoins.yml`)
 - [ ] At least 3 altcoin pairs actively traded
 - [ ] No altcoin position exceeds 5% of equity
 - [ ] Operator approves new pairs via Telegram

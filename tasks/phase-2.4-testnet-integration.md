@@ -1,7 +1,7 @@
 ---
 phase: 2.4
 title: Testnet Integration Test
-status: pending
+status: ready
 depends_on: phase-2.3, phase-2.3b
 ---
 
@@ -48,6 +48,8 @@ Run the full system end-to-end on Binance testnet for 24-48 hours. Validate that
 - [ ] OpenClaw conversational queries work via Telegram
 - [ ] No position state lost on restart
 - [ ] Issues documented and critical ones fixed
+
+> **Note:** Status set to `ready`. Scripts and runbook are built; the actual 24-48h integration run has not yet been executed.
 
 ## Out of scope
 - Strategy performance evaluation (testnet prices aren't real)

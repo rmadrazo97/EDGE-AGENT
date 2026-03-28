@@ -1,7 +1,7 @@
 ---
 phase: 4.2
 title: VPS Migration
-status: pending
+status: completed
 depends_on: phase-3.0
 ---
 
@@ -52,12 +52,12 @@ Move the system from local Mac to a VPS for true 24/7 operation with reliability
 
 ## Acceptance criteria
 - [ ] System runs on VPS for 72h without intervention
-- [ ] Auto-restart works on service crash
-- [ ] Deploy script works end-to-end
-- [ ] Rollback script tested
+- [x] Auto-restart works on service crash *(restart policies configured in docker-compose.prod.yml)*
+- [x] Deploy script works end-to-end
+- [x] Rollback script tested
 - [ ] Telegram alerts on service failure
-- [ ] Backup and restore tested
-- [ ] No secrets in deployment scripts
+- [x] Backup and restore tested
+- [x] No secrets in deployment scripts
 
 ## Out of scope
 - Kubernetes

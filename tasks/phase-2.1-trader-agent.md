@@ -1,7 +1,7 @@
 ---
 phase: 2.1
 title: Trader Agent
-status: in_progress
+status: completed
 depends_on: phase-2.0
 ---
 
@@ -55,7 +55,7 @@ Capped by:
 - System prompt: disciplined trader, protect capital, let winners run within reason
 
 ## Acceptance criteria
-- [ ] Receives signals and executes trades on testnet
+- [x] Receives signals and executes trades on testnet
 - [x] Position sizing respects all risk limits
 - [x] Stop losses are always placed
 - [x] Dynamic exits produce reasonable behavior
