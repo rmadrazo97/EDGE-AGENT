@@ -6,6 +6,6 @@ COPY pyproject.toml .
 COPY src/ src/
 COPY configs/ configs/
 
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir .
 
 CMD ["python3", "-m", "agents.trader.agent"]

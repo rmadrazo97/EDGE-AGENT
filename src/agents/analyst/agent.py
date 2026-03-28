@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import math
 import time
 from contextlib import ExitStack
 from datetime import datetime, timezone
@@ -18,6 +17,7 @@ from clients.base import HummingbotAPIConnectionError, HummingbotAPIError
 from clients.market_data import MarketDataClient
 from clients.portfolio import PortfolioClient
 from shared.config import ClientSettings
+from shared.math import calculate_realized_volatility
 from shared.models import Candle, OpenPosition, OrderBookSnapshot
 from shared.moonshot import MoonshotAPIError, MoonshotClient
 
@@ -77,23 +77,7 @@ class MarketAnalystAgent:
         imbalance = 0.0 if denominator == 0 else (total_bid_depth - total_ask_depth) / denominator
         return imbalance, total_bid_depth, total_ask_depth
 
-    @staticmethod
-    def _calculate_realized_volatility(candles: list[Candle]) -> float:
-        if len(candles) < 2:
-            return 0.0
-
-        returns: list[float] = []
-        for previous, current in zip(candles, candles[1:]):
-            if previous.close <= 0:
-                continue
-            returns.append((current.close - previous.close) / previous.close)
-
-        if len(returns) < 2:
-            return 0.0
-
-        mean_return = sum(returns) / len(returns)
-        variance = sum((value - mean_return) ** 2 for value in returns) / len(returns)
-        return math.sqrt(variance) * 100
+    _calculate_realized_volatility = staticmethod(calculate_realized_volatility)
 
     def collect_market_snapshot(
         self,

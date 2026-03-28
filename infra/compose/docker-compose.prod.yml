@@ -16,6 +16,7 @@ services:
     environment:
       POSTGRES_DB: hummingbot_api
       POSTGRES_USER: hbot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     deploy:
