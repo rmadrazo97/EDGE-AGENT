@@ -1,16 +1,21 @@
-"""Reporter agent loop for Telegram notifications, approvals, and reports."""
+"""Reporter agent loop for Telegram notifications, approvals, and reports.
+
+Runs in send-only mode to avoid Telegram polling conflicts with OpenClaw.
+Scheduled reports are driven by APScheduler directly (no python-telegram-bot polling).
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
 import logging
+import signal
+import time
 from contextlib import ExitStack
 from datetime import date, datetime, time as wall_clock_time, timezone
 from pathlib import Path
 
-from telegram import Update
-from telegram.ext import Application, ApplicationBuilder, CallbackContext, CallbackQueryHandler
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from agents.reporter.approvals import ApprovalStore
 from agents.reporter.formatters import format_daily_report, format_periodic_report
@@ -120,71 +125,60 @@ class ReporterAgent:
             executed_count=self._trade_open_count(target_date),
         )
 
-    async def send_periodic_report_job(self, context: CallbackContext) -> None:
-        del context
-        self.notifier.send_periodic_report(self.build_periodic_report_text())
-
-    async def send_daily_report_job(self, context: CallbackContext) -> None:
-        del context
-        self.notifier.send_periodic_report(self.build_daily_report_text())
-
-    async def handle_approval_callback(self, update: Update, context: CallbackContext) -> None:
-        del context
-        query = update.callback_query
-        if query is None:
-            return
-        handled, reason, resolution = self.approval_store.handle_callback(
-            query.data or "",
-            user_id=update.effective_user.id if update.effective_user else None,
-            authorized_user_id=self.settings.telegram_operator_chat_id,
-        )
-        if not handled:
-            if reason == "unauthorized":
-                await query.answer("Unauthorized.", show_alert=True)
-            elif reason == "not_found":
-                await query.answer("Approval request not found.", show_alert=True)
-            elif reason == "timed_out":
-                await query.answer("Approval request timed out.", show_alert=True)
-            else:
-                await query.answer("Approval request is no longer pending.", show_alert=True)
-            return
-
-        await query.answer("Recorded.")
-        await query.edit_message_reply_markup(reply_markup=None)
-        await query.edit_message_text(
-            f"{query.message.text_html}\n\nStatus: <code>{resolution.status}</code>",
-            parse_mode="HTML",
-        )
-
-    def build_application(self) -> Application | None:
+    def run(self) -> int:
         if not self.notifier.configured:
             LOGGER.warning("Reporter agent is not configured; TELEGRAM_BOT_TOKEN or TELEGRAM_OPERATOR_CHAT_ID missing.")
-            return None
-
-        application = ApplicationBuilder().token(self.settings.telegram_bot_token).build()
-        application.add_handler(CallbackQueryHandler(self.handle_approval_callback, pattern=r"^approval:"))
-        if application.job_queue is None:
-            raise RuntimeError("python-telegram-bot JobQueue is unavailable. Install APScheduler.")
-
-        application.job_queue.run_repeating(
-            self.send_periodic_report_job,
-            interval=self.settings.report_interval_hours * 3600,
-            first=60,
-            name="periodic-report",
-        )
-        application.job_queue.run_daily(
-            self.send_daily_report_job,
-            time=wall_clock_time(hour=self.settings.daily_report_hour_utc, tzinfo=timezone.utc),
-            name="daily-report",
-        )
-        return application
-
-    def run(self) -> int:
-        application = self.build_application()
-        if application is None:
             return 0
-        application.run_polling(allowed_updates=["callback_query"])
+
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(
+            self._send_periodic_report,
+            "interval",
+            seconds=self.settings.report_interval_hours * 3600,
+            next_run_time=datetime.now(timezone.utc),
+            id="periodic-report",
+        )
+        scheduler.add_job(
+            self._send_daily_report,
+            "cron",
+            hour=self.settings.daily_report_hour_utc,
+            minute=0,
+            timezone=timezone.utc,
+            id="daily-report",
+        )
+        scheduler.start()
+
+        LOGGER.info("Reporter running in send-only mode (no Telegram polling).")
+        stop = False
+
+        def _handle_signal(signum: int, frame: object) -> None:
+            nonlocal stop
+            stop = True
+
+        signal.signal(signal.SIGTERM, _handle_signal)
+        signal.signal(signal.SIGINT, _handle_signal)
+
+        try:
+            while not stop:
+                time.sleep(10)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            scheduler.shutdown(wait=False)
+            LOGGER.info("Reporter stopped.")
         return 0
+
+    def _send_periodic_report(self) -> None:
+        try:
+            self.notifier.send_periodic_report(self.build_periodic_report_text())
+        except Exception:
+            LOGGER.exception("Failed to send periodic report")
+
+    def _send_daily_report(self) -> None:
+        try:
+            self.notifier.send_periodic_report(self.build_daily_report_text())
+        except Exception:
+            LOGGER.exception("Failed to send daily report")
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
