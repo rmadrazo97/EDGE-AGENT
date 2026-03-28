@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help up down logs smoke test test-trade analyst-once trader-once reporter advisor-once risk-monitor scan-altcoins integration-test integration-report signal-export signal-metrics signal-journal deploy rollback backup health
+.PHONY: help up down logs smoke test test-trade analyst-once trader-once reporter advisor-once risk-monitor scan-altcoins integration-test integration-test-short integration-report signal-export signal-metrics signal-journal deploy rollback backup health
 
 help: ## Show available targets
 	@printf "EDGE-AGENT targets:\n\n"
@@ -44,6 +44,9 @@ scan-altcoins: ## Scan altcoin perps for trading opportunities
 
 integration-test: ## Run the 24-48h testnet integration test
 	@./infra/scripts/integration-test.sh
+
+integration-test-short: ## Run a quick 2-cycle integration test (~5 min)
+	@./infra/scripts/integration-test-short.sh
 
 integration-report: ## Generate post-run integration test report
 	@./infra/scripts/integration-test-report.sh
