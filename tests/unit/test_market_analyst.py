@@ -252,3 +252,27 @@ def test_analyst_returns_no_signal_when_model_declines_tool_call() -> None:
     signals = agent.run_once()
 
     assert signals == []
+
+
+def test_analyst_retries_after_timeout_error() -> None:
+    """Verify that MoonshotAPIError from timeout exceptions triggers retry."""
+    sleep_calls: list[float] = []
+    agent = MarketAnalystAgent(
+        settings=make_settings(),
+        market_data_client=StubMarketDataClient(),
+        portfolio_client=StubPortfolioClient(),
+        moonshot_client=StubMoonshotClient(
+            [
+                MoonshotAPIError("Moonshot API request timed out: ReadTimeout('The read operation timed out')"),
+                make_completion(
+                    '{"pair":"BTC-USDT","side":"short","confidence":0.8,"entry_price":64980.0,"stop_loss_price":66300.0,"reasoning":"Recovered after timeout."}'
+                ),
+            ]
+        ),
+        sleep_fn=sleep_calls.append,
+    )
+
+    signals = agent.run_once()
+
+    assert len(signals) == 1
+    assert sleep_calls == [0.5]

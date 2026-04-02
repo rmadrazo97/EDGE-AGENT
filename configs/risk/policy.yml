@@ -12,3 +12,7 @@ allowed_sides:
 allowed_pairs:
   - BTC-USDT
   - ETH-USDT
+  - SOL-USDT
+  - DOGE-USDT
+  - XRP-USDT
+  - LINK-USDT

@@ -84,19 +84,24 @@ class MoonshotClient:
         if not self.settings.moonshot_api_key:
             raise MoonshotAPIError("Missing MOONSHOT_API_KEY in local environment.")
 
-        response = self._http_client.post(
-            "/chat/completions",
-            json={
-                "model": self.settings.moonshot_model,
-                "temperature": temperature,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "tools": tools,
-                "tool_choice": tool_choice,
-            },
-        )
+        try:
+            response = self._http_client.post(
+                "/chat/completions",
+                json={
+                    "model": self.settings.moonshot_model,
+                    "temperature": temperature,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    "tools": tools,
+                    "tool_choice": tool_choice,
+                },
+            )
+        except httpx.TimeoutException as exc:
+            raise MoonshotAPIError(f"Moonshot API request timed out: {exc}") from exc
+        except httpx.NetworkError as exc:
+            raise MoonshotAPIError(f"Moonshot API network error: {exc}") from exc
         if response.status_code != 200:
             detail = response.text
             try:

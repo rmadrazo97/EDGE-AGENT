@@ -18,6 +18,7 @@ from agents.reporter.approvals import ApprovalStore
 from agents.reporter.notifier import TelegramNotifier
 from agents.trader.position_manager import PositionManager
 from agents.trader.prompts import TRADER_SYSTEM_PROMPT, build_trader_review_prompt
+from clients.base import HummingbotAPIError
 from clients.market_data import MarketDataClient
 from clients.portfolio import PortfolioClient
 from clients.trading import TradingClient
@@ -90,6 +91,12 @@ class TraderAgent:
             stream.write(json.dumps(payload, default=str) + "\n")
         LOGGER.info("%s %s", event, details)
 
+    # Minimum notional values for Binance perps (USD)
+    MIN_NOTIONAL: dict[str, Decimal] = {
+        "BTC-USDT": Decimal("20"),
+        "ETH-USDT": Decimal("20"),
+    }
+
     def _build_trade_proposal(self, signal: TradeSignal, account_state) -> TradeProposal:
         config = self.policy_engine.config
         leverage = min(float(self.settings.trader_default_leverage), float(config.max_leverage))
@@ -105,6 +112,11 @@ class TraderAgent:
 
         requested_size = min(size_by_risk, size_by_margin) if size_by_margin > 0 else size_by_risk
         requested_size = min(requested_size, float(TradingClient.max_test_position_size))
+
+        # Enforce minimum notional size
+        min_notional = self.MIN_NOTIONAL.get(signal.pair, Decimal("20"))
+        min_size = float(min_notional / Decimal(str(signal.entry_price)))
+        requested_size = max(requested_size, min_size)
 
         return TradeProposal(
             pair=signal.pair,
@@ -194,12 +206,31 @@ class TraderAgent:
             self._record("trade_rejected", pair=signal.pair, violations=["calculated trade size was zero"])
             return PolicyDecision(approved=False, violations=["calculated trade size was zero"], warnings=[])
 
-        trading.set_position_mode("ONEWAY")
-        if signal.side == "long":
-            submission = trading.open_long(signal.pair, Decimal(str(size_to_execute)), int(proposal.leverage))
-        else:
-            submission = trading.open_short(signal.pair, Decimal(str(size_to_execute)), int(proposal.leverage))
-        stop_loss = trading.set_stop_loss(signal.pair, signal.stop_loss_price, side=signal.side)
+        try:
+            trading.set_position_mode("ONEWAY")
+            if signal.side == "long":
+                submission = trading.open_long(signal.pair, Decimal(str(size_to_execute)), int(proposal.leverage))
+            else:
+                submission = trading.open_short(signal.pair, Decimal(str(size_to_execute)), int(proposal.leverage))
+            stop_loss = trading.set_stop_loss(signal.pair, signal.stop_loss_price, side=signal.side)
+        except HummingbotAPIError as exc:
+            self._record(
+                "trade_execution_failed",
+                pair=signal.pair,
+                side=signal.side,
+                size=size_to_execute,
+                error=str(exc),
+                status_code=exc.status_code,
+                detail=exc.detail,
+            )
+            LOGGER.warning("Trade execution failed for %s: %s (status=%s)", signal.pair, exc, exc.status_code)
+            return PolicyDecision(
+                approved=False,
+                violations=[f"trade_execution_failed: {exc}"],
+                warnings=decision.warnings,
+                adjusted_size=decision.adjusted_size,
+            )
+
         self.position_manager.record_open(
             signal=signal,
             size=size_to_execute,
@@ -320,17 +351,26 @@ class TraderAgent:
                     raise ValueError("run_once requires signals or an analyst agent.")
                 current_signals = self.analyst_agent.run_once()
 
-            decisions = [
-                self.process_signal(signal, trading=trading, portfolio=portfolio, market=market)
-                for signal in current_signals
-            ]
+            decisions: list[PolicyDecision] = []
+            for signal in current_signals:
+                try:
+                    decision = self.process_signal(signal, trading=trading, portfolio=portfolio, market=market)
+                    decisions.append(decision)
+                except Exception as exc:
+                    LOGGER.exception("Failed to process signal for %s: %s", signal.pair, exc)
+                    self._record("signal_processing_error", pair=signal.pair, error=str(exc), error_type=type(exc).__name__)
+                    decisions.append(PolicyDecision(approved=False, violations=[f"processing_error: {exc}"], warnings=[]))
             self.review_positions(trading=trading, market=market, moonshot=moonshot)
             return decisions
 
     def run_forever(self) -> None:
         interval_seconds = self.settings.trader_review_interval_minutes * 60
         while True:
-            self.run_once()
+            try:
+                self.run_once()
+            except Exception as exc:
+                LOGGER.exception("Trader cycle failed, will retry: %s", exc)
+                self._record("cycle_error", error=str(exc), error_type=type(exc).__name__)
             self.sleep_fn(interval_seconds)
 
 

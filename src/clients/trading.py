@@ -73,7 +73,10 @@ class PositionModeResult(BaseModel):
 
 
 class TradingClient(HummingbotAPIClient):
-    max_test_position_size: Decimal = Decimal("0.005")
+    # Min notional: $20 for Binance perps
+    min_notional: Decimal = Decimal("20")
+    # Max position cap for testnet safety (~$500 notional)
+    max_test_position_size: Decimal = Decimal("0.05")
 
     def _ensure_testnet_only(self) -> None:
         connector_name = self.settings.market_data_connector
